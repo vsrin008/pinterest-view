@@ -57,7 +57,7 @@
     "babel-preset-stage-1": "^6.16.0",
     "babel-register": "^6.18.0",
     "enzyme": "^3.11.0",
-    "enzyme-adapter-react-16": "^1.15.7",
+    "@wojtekmaj/enzyme-adapter-react-17": "^0.8.0",
     "eslint": "^4.2.0",
     "eslint-config-airbnb": "^16.1.0",
     "eslint-plugin-babel": "^4.0.0",
@@ -71,9 +71,9 @@
     "gh-pages": "^1.0.0",
     "jest": "^21.2.1",
     "rc-slider": "^8.2.0",
-    "react": "^16.8.0",
-    "react-dom": "^16.8.0",
-    "react-test-renderer": "^16.8.0",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-test-renderer": "^17.0.2",
     "rimraf": "^2.6.1",
     "sinon": "^2.3.2",
     "webpack": "^3.3.0",
@@ -81,8 +81,8 @@
     "react-router": "^3.2.6"
   },
   "peerDependencies": {
-    "react": ">=16.8.0",
-    "react-dom": ">=16.8.0"
+    "react": ">=17.0.0",
+    "react-dom": ">=17.0.0"
   },
   "dependencies": {
     "easy-css-transform-builder": "^0.0.2",
