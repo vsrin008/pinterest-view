@@ -190,9 +190,6 @@ export class GridInline extends Component {
 
   componentDidMount() {
     this.mounted = true;
-    if (this.containerRef.current) {
-      this.props.size.registerRef(this.containerRef.current);
-    }
     this.updateLayout(this.props);
   }
 
@@ -204,9 +201,6 @@ export class GridInline extends Component {
 
   componentWillUnmount() {
     this.mounted = false;
-    if (this.containerRef.current) {
-      this.props.size.unregisterRef(this.containerRef.current);
-    }
     // Clean up any image loading listeners
     Object.keys(this.imgLoad).forEach((key) => {
       if (this.imgLoad[key]) {
