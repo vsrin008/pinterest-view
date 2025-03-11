@@ -36,7 +36,6 @@ const DemoItem = ({ color, height, index }) => (
       cursor: "pointer",
       boxSizing: "border-box",
       padding: "15px",
-      margin: "0 0 15px 0",
     }}
   >
     <div style={{ textAlign: "center" }}>
