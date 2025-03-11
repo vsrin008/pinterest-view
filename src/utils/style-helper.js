@@ -1,9 +1,9 @@
 // @flow
-import { createPrefixer } from "inline-style-prefixer";
+import { createPrefixer } from 'inline-style-prefixer';
 import {
   createCSSTransformBuilder,
   properties,
-} from "easy-css-transform-builder";
+} from 'easy-css-transform-builder';
 
 export type Units = {
   length: string,
@@ -16,7 +16,7 @@ export const transition = (
   props: Array<string>,
   duration: number,
   easing: string
-) => props.map((prop) => `${prop} ${duration}ms ${easing}`).join(",");
+) => props.map((prop) => `${prop} ${duration}ms ${easing}`).join(',');
 
 export const buildStyles = (
   styles: Object,
@@ -34,7 +34,7 @@ export const buildStyles = (
     if (isTransformProp(key)) {
       transformStyles[key] = value;
 
-      if (key === "perspective") {
+      if (key === 'perspective') {
         finalStyles[key] = value;
       }
     } else {
@@ -43,7 +43,7 @@ export const buildStyles = (
   });
 
   const transform = builder(transformStyles, units);
-  if (transform !== "") {
+  if (transform !== '') {
     finalStyles.transform = transform;
   }
 

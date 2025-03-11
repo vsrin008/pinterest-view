@@ -5,12 +5,16 @@
     "node": true,
     "jest/globals": true
   },
-  "parser": "babel-eslint",
+  "parser": "@babel/eslint-parser",
   "parserOptions": {
-    "ecmaVersion": 2017,
+    "ecmaVersion": 2020,
     "sourceType": "module",
     "ecmaFeatures": {
       "jsx": true
+    },
+    "requireConfigFile": false,
+    "babelOptions": {
+      "presets": ["@babel/preset-react", "@babel/preset-flow"]
     }
   },
   "plugins": ["jest", "flowtype"],
@@ -19,6 +23,11 @@
     "plugin:jest/recommended",
     "plugin:flowtype/recommended"
   ],
+  "settings": {
+    "flowtype": {
+      "onlyFilesWithFlowAnnotation": true
+    }
+  },
   "rules": {
     "no-prototype-builtins": "off",
     "comma-dangle": [
@@ -38,8 +47,29 @@
     "react/sort-comp": "off",
     "react/require-default-props": "off",
     "react/no-multi-comp": "off",
+    "react/static-property-placement": "off",
+    "react/state-in-constructor": "off",
+    "react/jsx-props-no-spreading": "off",
     "jsx-a11y/href-no-hash": "off",
     "jsx-a11y/label-has-for": "off",
-    "jsx-a11y/img-has-alt": "off"
+    "jsx-a11y/img-has-alt": "off",
+    "import/no-extraneous-dependencies": [
+      "error",
+      {
+        "devDependencies": [
+          "**/*.spec.js",
+          "docs/**/*.js",
+          "webpack.config.*.js"
+        ]
+      }
+    ],
+    "no-console": "warn",
+    "no-unused-vars": "warn",
+    "quotes": ["error", "single"],
+    "operator-linebreak": ["error", "before"],
+    "implicit-arrow-linebreak": "off",
+    "no-confusing-arrow": "off",
+    "no-plusplus": "off",
+    "no-param-reassign": "off"
   }
 }

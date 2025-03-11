@@ -1,51 +1,19 @@
-// @flow
 import React, { Component } from "react";
 import PropTypes from "prop-types";
 import shallowequal from "shallowequal";
-import { transition, buildStyles } from "../utils/style-helper";
-import { raf } from "../animations/request-animation-frame";
+import invariant from "invariant";
+import { transition } from "../utils/style-helper";
+import {
+  requestAnimationFrame,
+  cancelAnimationFrame,
+} from "../animations/request-animation-frame";
 
-import type { Units, Rect } from "../types/";
-
-type Props = {
-  itemKey: string,
-  index: number,
-  component: string,
-  rect: Rect,
-  containerSize: {
-    width: number,
-    height: number,
-    actualWidth: number,
-  },
-  duration: number,
-  easing: string,
-  appearDelay: number,
-  appear: Function,
-  appeared: Function,
-  enter: Function,
-  entered: Function,
-  leaved: Function,
-  units: Units,
-  vendorPrefix: boolean,
-  userAgent: ?string,
-  onMounted: Function,
-  onUnmount: Function,
-  rtl: boolean,
-};
-
-type State = Object;
-
-const getTransitionStyles = (type: string, props: Props): Object => {
+const getTransitionStyles = (type, props) => {
   const { rect, containerSize, index } = props;
-
   return props[type](rect, containerSize, index);
 };
 
-const getPositionStyles = (
-  rect: Rect,
-  zIndex: number,
-  rtl: boolean
-): Object => ({
+const getPositionStyles = (rect, zIndex, rtl) => ({
   transform: `translateX(${
     rtl ? -Math.round(rect.left) : Math.round(rect.left)
   }px) translateY(${Math.round(rect.top)}px)`,
@@ -53,12 +21,6 @@ const getPositionStyles = (
 });
 
 export default class GridItem extends Component {
-  props: Props;
-  state: State;
-  node: ?HTMLElement;
-  mounted: boolean;
-  appearTimer: ?number;
-
   static propTypes = {
     itemKey: PropTypes.string,
     index: PropTypes.number,
@@ -91,11 +53,61 @@ export default class GridItem extends Component {
     onMounted: PropTypes.func,
     onUnmount: PropTypes.func,
     rtl: PropTypes.bool,
+    style: PropTypes.object,
+    children: PropTypes.node,
   };
 
-  constructor(props: Props) {
-    super(props);
+  static defaultProps = {
+    component: "div",
+    duration: 0,
+    easing: "ease-out",
+    appearDelay: 0,
+    appear: () => ({}),
+    appeared: () => ({}),
+    enter: () => ({}),
+    entered: () => ({}),
+    leaved: () => ({}),
+    units: {
+      length: "px",
+      angle: "deg",
+    },
+    vendorPrefix: true,
+    userAgent: null,
+    onMounted: () => {},
+    onUnmount: () => {},
+    rtl: false,
+    style: {},
+  };
 
+  static getDerivedStateFromProps(nextProps, prevState) {
+    if (!shallowequal(nextProps, prevState.prevProps)) {
+      const { rect, duration, easing, rtl } = nextProps;
+      const isSignificantChange =
+        Math.abs((prevState.prevProps?.rect?.top || 0) - (rect?.top || 0)) >
+          1 ||
+        Math.abs((prevState.prevProps?.rect?.left || 0) - (rect?.left || 0)) >
+          1;
+
+      if (isSignificantChange) {
+        return {
+          ...prevState,
+          ...getPositionStyles(rect, 2, rtl),
+          transition: transition(["transform"], duration, easing),
+          prevProps: nextProps,
+        };
+      }
+
+      return {
+        ...prevState,
+        ...getPositionStyles(rect, 1, rtl),
+        prevProps: nextProps,
+      };
+    }
+    return null;
+  }
+
+  constructor(props) {
+    super(props);
     this.mounted = false;
     this.appearTimer = null;
     this.node = null;
@@ -103,6 +115,7 @@ export default class GridItem extends Component {
     this.state = {
       ...getPositionStyles(props.rect, 1, props.rtl),
       ...getTransitionStyles("appear", props),
+      prevProps: props,
     };
   }
 
@@ -118,42 +131,7 @@ export default class GridItem extends Component {
     this.props.onUnmount(this);
   }
 
-  componentWillReceiveProps(nextProps: Props) {
-    if (!shallowequal(nextProps, this.props)) {
-      const { rect, duration } = nextProps;
-
-      // Validate position change
-      const isSignificantChange =
-        Math.abs((this.props.rect?.top || 0) - (rect?.top || 0)) > 1 ||
-        Math.abs((this.props.rect?.left || 0) - (rect?.left || 0)) > 1;
-
-      // Use RAF for smooth animation, but only for significant changes
-      if (isSignificantChange) {
-        raf(() => {
-          this.setStateIfNeeded({
-            ...this.state,
-            ...getPositionStyles(rect, 2, nextProps.rtl),
-            transition: transition(["transform"], duration, nextProps.easing),
-          });
-        });
-      } else {
-        // For minor adjustments, update without animation
-        this.setStateIfNeeded({
-          ...this.state,
-          ...getPositionStyles(rect, 1, nextProps.rtl),
-        });
-      }
-    }
-  }
-
-  shouldComponentUpdate(nextProps: Props, nextState: State) {
-    return (
-      !shallowequal(nextProps, this.props) ||
-      !shallowequal(nextState, this.state)
-    );
-  }
-
-  componentWillAppear(callback: Function) {
+  componentWillAppear(callback) {
     // Ensure initial position is set before animation starts
     this.setStateIfNeeded({
       ...this.state,
@@ -180,7 +158,7 @@ export default class GridItem extends Component {
     this.setAppearedStyles();
   }
 
-  componentWillEnter(callback: Function) {
+  componentWillEnter(callback) {
     this.setEnterStyles();
     this.forceUpdate(callback);
   }
@@ -189,12 +167,12 @@ export default class GridItem extends Component {
     this.setEnteredStyles();
   }
 
-  componentWillLeave(callback: Function) {
+  componentWillLeave(callback) {
     this.setLeaveStyles();
     setTimeout(callback, this.props.duration);
   }
 
-  setStateIfNeeded(state: Object) {
+  setStateIfNeeded(state) {
     if (this.mounted) {
       this.setState(state);
     }
@@ -234,57 +212,29 @@ export default class GridItem extends Component {
 
   render() {
     const {
-      /* eslint-disable no-unused-vars */
-      index,
       component: Element,
-      containerSize,
-      appearDelay,
-      appear,
-      appeared,
-      enter,
-      entered,
-      leaved,
-      onMounted,
-      onUnmount,
-      itemKey,
-      /* eslint-enable no-unused-vars */
+      style,
+      children,
       rect,
+      rtl,
       duration,
       easing,
-      units,
-      vendorPrefix,
-      userAgent,
-      rtl,
-      ...rest
     } = this.props;
 
-    const style = buildStyles(
-      {
-        ...this.state,
-        display: "block",
-        position: "absolute",
-        top: 0,
-        ...(rtl ? { right: 0 } : { left: 0 }),
-        width: rect.width,
-        willChange: "transform",
-        backfaceVisibility: "hidden",
-        perspective: 1000,
-        transform: `translate3d(${
-          rtl ? -Math.round(rect.left) : Math.round(rect.left)
-        }px, ${Math.round(rect.top)}px, 0)`,
-      },
-      units,
-      vendorPrefix,
-      userAgent
-    );
+    if (!rect) return null;
 
-    return (
-      <Element
-        {...rest}
-        ref={(node) => (this.node = node)}
-        style={style}
-        data-grid-item={itemKey}
-      />
-    );
+    const elementStyle = {
+      position: "absolute",
+      top: 0,
+      ...(rtl ? { right: 0 } : { left: 0 }),
+      width: `${rect.width}px`,
+      height: `${rect.height}px`,
+      transition:
+        duration && easing ? `all ${duration}ms ${easing}` : undefined,
+      ...this.state,
+      ...style,
+    };
+
+    return <Element style={elementStyle}>{children}</Element>;
   }
 }

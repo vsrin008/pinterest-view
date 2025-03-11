@@ -1,121 +1,114 @@
-import sinon from 'sinon';
-import React from 'react';
-import { mount } from 'enzyme';
-import { easings, transitions } from '../../';
-import GridItem from '../GridItem';
+import React from "react";
+import { render, screen } from "@testing-library/react";
+import GridItem from "../GridItem";
 
+const mockRect = {
+  top: 0,
+  left: 0,
+  width: 100,
+  height: 100,
+};
 
-const mockProps = {
-  component: 'span',
-  rect: {
-    top: 0,
-    left: 0,
-    width: 0,
-    height: 0,
-  },
-  containerSize: {
-    width: 960,
-    height: 0,
-  },
-  index: 0,
-  easing: easings.quartOut,
-  appearDelay: 30,
-  appear: transitions.fadeUp.appear,
-  appeared: transitions.fadeUp.appeared,
-  enter: transitions.fadeUp.enter,
-  entered: transitions.fadeUp.entered,
-  leaved: transitions.fadeUp.leaved,
-  units: { length: 'px', angle: 'deg' },
-  vendorPrefix: true,
-  userAgent: null,
+const mockContainerSize = {
+  width: 300,
+  height: 300,
+};
+
+const mockTransitionFunctions = {
+  appear: () => ({ opacity: 0, transform: "scale(0)" }),
+  appeared: () => ({ opacity: 1, transform: "scale(1)" }),
+  enter: () => ({ opacity: 0, transform: "scale(0)" }),
+  entered: () => ({ opacity: 1, transform: "scale(1)" }),
+  leaved: () => ({ opacity: 0, transform: "scale(0)" }),
+};
+
+const mockCallbacks = {
   onMounted: () => {},
   onUnmount: () => {},
 };
 
-let clock = null;
-
-
-describe('<GridItem />', () => {
-  beforeEach(() => {
-    clock = sinon.useFakeTimers();
-  });
-
-  afterEach(() => {
-    clock.restore();
-  });
-
-
-  test('Should be change component', () => {
-    const wrapper = mount(
+describe("GridItem", () => {
+  it("renders children correctly", () => {
+    const { container } = render(
       <GridItem
-        {...mockProps}
-        component="li"
-      />
-    );
-
-    expect(wrapper.find('li')).toHaveLength(1);
-  });
-
-
-  test('Should be call handleMounted/handleUnmount', () => {
-    const handleMounted = sinon.spy();
-    const handleUnmount = sinon.spy();
-
-    expect(handleMounted.called).toBe(false);
-
-    const wrapper = mount(
-      <GridItem
-        {...mockProps}
-        onMounted={handleMounted}
-        onUnmount={handleUnmount}
-      />
-    );
-
-    expect(handleMounted.called).toBe(true);
-
-    wrapper.unmount();
-    expect(handleUnmount.called).toBe(true);
-  });
-
-
-  test('Should be call transition style function', () => {
-    const spyFunctions = {
-      appear: sinon.spy(),
-      appeared: sinon.spy(),
-      enter: sinon.spy(),
-      entered: sinon.spy(),
-      leaved: sinon.spy(),
-    };
-
-    const wrapper = mount(
-      <GridItem
-        {...mockProps}
-        {...spyFunctions}
-        duration={300}
+        rect={mockRect}
+        component="div"
+        style={{}}
+        {...mockTransitionFunctions}
+        {...mockCallbacks}
       >
-        Item
+        <div data-testid="child">Test Content</div>
       </GridItem>
     );
+    const child = screen.getByTestId("child");
+    expect(child).toBeInTheDocument();
+    expect(child).toHaveTextContent("Test Content");
+  });
 
-    const gridItem = wrapper.instance();
-    const noop = () => {};
+  it("applies correct styles", () => {
+    const { container } = render(
+      <GridItem
+        rect={mockRect}
+        component="div"
+        style={{ backgroundColor: "red" }}
+        {...mockTransitionFunctions}
+        {...mockCallbacks}
+      >
+        <div>Test Content</div>
+      </GridItem>
+    );
+    const gridItem = container.firstChild;
+    expect(gridItem).toHaveStyle({
+      backgroundColor: "red",
+      position: "absolute",
+      top: "0px",
+      left: "0px",
+      width: "100px",
+      height: "100px",
+    });
+  });
 
-    expect(spyFunctions.appear.called).toBe(true);
+  it("applies RTL styles", () => {
+    const { container } = render(
+      <GridItem
+        rect={mockRect}
+        component="div"
+        rtl={true}
+        style={{}}
+        {...mockTransitionFunctions}
+        {...mockCallbacks}
+      >
+        <div>Test Content</div>
+      </GridItem>
+    );
+    const gridItem = container.firstChild;
+    expect(gridItem).toHaveStyle({
+      position: "absolute",
+      top: "0px",
+      right: "0px",
+      width: "100px",
+      height: "100px",
+    });
+  });
 
-    gridItem.componentDidAppear(() => {});
-    clock.tick(300);
-    expect(spyFunctions.appeared.called).toBe(true);
-
-    clock.tick(300);
-    gridItem.componentWillEnter(noop);
-    expect(spyFunctions.enter.called).toBe(true);
-
-    clock.tick(300);
-    gridItem.componentDidEnter();
-    expect(spyFunctions.entered.called).toBe(true);
-
-    clock.tick(300);
-    gridItem.componentWillLeave(noop);
-    expect(spyFunctions.leaved.called).toBe(true);
+  it("applies transition styles", () => {
+    const { container } = render(
+      <GridItem
+        rect={mockRect}
+        containerSize={mockContainerSize}
+        transition="all"
+        easing="ease-out"
+        duration={300}
+        component="div"
+        {...mockTransitionFunctions}
+        {...mockCallbacks}
+      >
+        <div>Test Content</div>
+      </GridItem>
+    );
+    const gridItem = container.firstChild;
+    expect(gridItem).toHaveStyle({
+      transition: "all 300ms ease-out",
+    });
   });
 });

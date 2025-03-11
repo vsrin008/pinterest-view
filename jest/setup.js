@@ -1,8 +1,10 @@
-import Enzyme from "enzyme";
-import Adapter from "@wojtekmaj/enzyme-adapter-react-17";
+import "@testing-library/jest-dom";
 
-Enzyme.configure({ adapter: new Adapter() });
+global.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+global.cancelAnimationFrame = (id) => clearTimeout(id);
 
-global.window.requestAnimationFrame = (callback) => setTimeout(callback, 1);
-
-global.window.cancelAnimationFrame = () => {};
+// Mock userAgent for inline-style-prefixer
+global.navigator = {
+  userAgent:
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+};
