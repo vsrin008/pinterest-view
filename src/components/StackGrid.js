@@ -9,7 +9,6 @@ import invariant from "invariant";
 
 // Import only necessary utils
 import { transition } from "../utils/style-helper";
-import * as easings from "../animations/easings";
 
 import type { Units } from "../types/";
 

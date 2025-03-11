@@ -2,7 +2,8 @@
 /* eslint-disable import/no-extraneous-dependencies */
 import React from "react";
 import { BrowserRouter } from "react-router-dom";
+import routes from "./routes";
 
-const Root = ({ routes }) => <BrowserRouter>{routes()}</BrowserRouter>;
+const Root = () => <BrowserRouter>{routes}</BrowserRouter>;
 
 export default Root;

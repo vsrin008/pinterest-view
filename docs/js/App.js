@@ -1,13 +1,12 @@
 /* eslint-disable react/prop-types */
 import React from "react";
 import { Outlet } from "react-router-dom";
-import Header from "./components/Header";
 
 const App = () => (
-  <div>
-    <div className="content">
+  <div className="app">
+    <main className="main">
       <Outlet />
-    </div>
+    </main>
   </div>
 );
 

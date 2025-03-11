@@ -1,12 +1,11 @@
 const path = require("path");
 
 module.exports = {
-  mode: "development",
+  mode: process.env.NODE_ENV === "production" ? "production" : "development",
   entry: "./docs/js/index.js",
   output: {
-    path: path.resolve(__dirname, "docs/dist"),
+    path: path.resolve(__dirname, "docs"),
     filename: "bundle.js",
-    publicPath: "/dist/",
   },
   module: {
     rules: [
@@ -30,9 +29,13 @@ module.exports = {
     static: {
       directory: path.join(__dirname, "docs"),
     },
-    compress: true,
+    historyApiFallback: true,
     port: 3000,
+    hot: true,
     open: true,
+  },
+  optimization: {
+    minimize: process.env.NODE_ENV === "production",
   },
   resolve: {
     extensions: [".js", ".jsx"],
