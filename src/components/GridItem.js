@@ -1,36 +1,36 @@
 // @flow
-import React, { Component } from 'react';
-import PropTypes from 'prop-types';
-import shallowequal from 'shallowequal';
-import { transition, buildStyles } from '../utils/style-helper';
-import { raf } from '../animations/request-animation-frame';
+import React, { Component } from "react";
+import PropTypes from "prop-types";
+import shallowequal from "shallowequal";
+import { transition, buildStyles } from "../utils/style-helper";
+import { raf } from "../animations/request-animation-frame";
 
-import type { Units, Rect } from '../types/';
+import type { Units, Rect } from "../types/";
 
 type Props = {
-  itemKey: string;
-  index: number;
+  itemKey: string,
+  index: number,
   component: string,
-  rect: Rect;
+  rect: Rect,
   containerSize: {
-    width: number;
-    height: number;
-    actualWidth: number;
-  };
-  duration: number;
-  easing: string;
-  appearDelay: number;
-  appear: Function;
-  appeared: Function;
-  enter: Function;
-  entered: Function;
-  leaved: Function;
-  units: Units;
-  vendorPrefix: boolean;
-  userAgent: ?string;
-  onMounted: Function;
-  onUnmount: Function;
-  rtl: boolean;
+    width: number,
+    height: number,
+    actualWidth: number,
+  },
+  duration: number,
+  easing: string,
+  appearDelay: number,
+  appear: Function,
+  appeared: Function,
+  enter: Function,
+  entered: Function,
+  leaved: Function,
+  units: Units,
+  vendorPrefix: boolean,
+  userAgent: ?string,
+  onMounted: Function,
+  onUnmount: Function,
+  rtl: boolean,
 };
 
 type State = Object;
@@ -41,12 +41,16 @@ const getTransitionStyles = (type: string, props: Props): Object => {
   return props[type](rect, containerSize, index);
 };
 
-const getPositionStyles = (rect: Rect, zIndex: number, rtl: boolean): Object => ({
-  translateX: ${rtl ? -Math.round(rect.left) : Math.round(rect.left)}px,
-  translateY: ${Math.round(rect.top)}px,
+const getPositionStyles = (
+  rect: Rect,
+  zIndex: number,
+  rtl: boolean
+): Object => ({
+  transform: `translateX(${
+    rtl ? -Math.round(rect.left) : Math.round(rect.left)
+  }px) translateY(${Math.round(rect.top)}px)`,
   zIndex,
 });
-
 
 export default class GridItem extends Component {
   props: Props;
@@ -98,7 +102,7 @@ export default class GridItem extends Component {
 
     this.state = {
       ...getPositionStyles(props.rect, 1, props.rtl),
-      ...getTransitionStyles('appear', props),
+      ...getTransitionStyles("appear", props),
     };
   }
 
@@ -117,9 +121,9 @@ export default class GridItem extends Component {
   componentWillReceiveProps(nextProps: Props) {
     if (!shallowequal(nextProps, this.props)) {
       const { rect, duration } = nextProps;
-      
+
       // Validate position change
-      const isSignificantChange = 
+      const isSignificantChange =
         Math.abs((this.props.rect?.top || 0) - (rect?.top || 0)) > 1 ||
         Math.abs((this.props.rect?.left || 0) - (rect?.left || 0)) > 1;
 
@@ -129,11 +133,7 @@ export default class GridItem extends Component {
           this.setStateIfNeeded({
             ...this.state,
             ...getPositionStyles(rect, 2, nextProps.rtl),
-            transition: transition(
-              ['transform'],
-              duration,
-              nextProps.easing
-            ),
+            transition: transition(["transform"], duration, nextProps.easing),
           });
         });
       } else {
@@ -158,16 +158,16 @@ export default class GridItem extends Component {
     this.setStateIfNeeded({
       ...this.state,
       ...getPositionStyles(this.props.rect, 1, this.props.rtl),
-      transition: 'none',
+      transition: "none",
     });
-    
+
     // Start appearance animation after a brief delay
     this.appearTimer = setTimeout(() => {
       this.setStateIfNeeded({
         ...this.state,
-        ...getTransitionStyles('appear', this.props),
+        ...getTransitionStyles("appear", this.props),
         transition: transition(
-          ['opacity', 'transform'],
+          ["opacity", "transform"],
           this.props.duration,
           this.props.easing
         ),
@@ -203,7 +203,7 @@ export default class GridItem extends Component {
   setAppearedStyles() {
     this.setStateIfNeeded({
       ...this.state,
-      ...getTransitionStyles('appeared', this.props),
+      ...getTransitionStyles("appeared", this.props),
       ...getPositionStyles(this.props.rect, 1, this.props.rtl),
     });
   }
@@ -212,14 +212,14 @@ export default class GridItem extends Component {
     this.setStateIfNeeded({
       ...this.state,
       ...getPositionStyles(this.props.rect, 2, this.props.rtl),
-      ...getTransitionStyles('enter', this.props),
+      ...getTransitionStyles("enter", this.props),
     });
   }
 
   setEnteredStyles() {
     this.setStateIfNeeded({
       ...this.state,
-      ...getTransitionStyles('entered', this.props),
+      ...getTransitionStyles("entered", this.props),
       ...getPositionStyles(this.props.rect, 1, this.props.rtl),
     });
   }
@@ -228,7 +228,7 @@ export default class GridItem extends Component {
     this.setStateIfNeeded({
       ...this.state,
       ...getPositionStyles(this.props.rect, 2, this.props.rtl),
-      ...getTransitionStyles('leaved', this.props),
+      ...getTransitionStyles("leaved", this.props),
     });
   }
 
@@ -258,23 +258,30 @@ export default class GridItem extends Component {
       ...rest
     } = this.props;
 
-    const style = buildStyles({
-      ...this.state,
-      display: 'block',
-      position: 'absolute',
-      top: 0,
-      ...(rtl ? { right: 0 } : { left: 0 }),
-      width: rect.width,
-      willChange: 'transform',
-      backfaceVisibility: 'hidden',
-      perspective: 1000,
-      transform: `translate3d(${rtl ? -Math.round(rect.left) : Math.round(rect.left)}px, ${Math.round(rect.top)}px, 0)`,
-    }, units, vendorPrefix, userAgent);
+    const style = buildStyles(
+      {
+        ...this.state,
+        display: "block",
+        position: "absolute",
+        top: 0,
+        ...(rtl ? { right: 0 } : { left: 0 }),
+        width: rect.width,
+        willChange: "transform",
+        backfaceVisibility: "hidden",
+        perspective: 1000,
+        transform: `translate3d(${
+          rtl ? -Math.round(rect.left) : Math.round(rect.left)
+        }px, ${Math.round(rect.top)}px, 0)`,
+      },
+      units,
+      vendorPrefix,
+      userAgent
+    );
 
     return (
       <Element
         {...rest}
-        ref={node => this.node = node}
+        ref={(node) => (this.node = node)}
         style={style}
         data-grid-item={itemKey}
       />

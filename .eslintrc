@@ -13,10 +13,7 @@
       "jsx": true
     }
   },
-  "plugins": [
-    "jest",
-    "flowtype"
-  ],
+  "plugins": ["jest", "flowtype"],
   "extends": [
     "airbnb",
     "plugin:jest/recommended",
