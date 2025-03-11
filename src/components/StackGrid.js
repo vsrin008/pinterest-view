@@ -36,7 +36,6 @@ const getColumnLengthAndWidth = (
 ): [number, number] => {
   if (isNumber(value)) {
     const columnWidth = parseFloat(value);
-
     return [
       Math.floor((width - (width / columnWidth - 1) * gutter) / columnWidth),
       columnWidth,
@@ -45,52 +44,54 @@ const getColumnLengthAndWidth = (
     const columnPercentage = parseFloat(value) / 100;
     const maxColumn = Math.floor(1 / columnPercentage);
     const columnWidth = (width - gutter * (maxColumn - 1)) / maxColumn;
-
     return [maxColumn, columnWidth];
   }
-
   invariant(false, "Should be columnWidth is a number or percentage string.");
 };
 /* eslint-enable consistent-return */
 
 // Simplified GridItem component without transitions
-const GridItem = ({
-  itemKey,
-  index,
-  component: Element,
-  rect = { top: 0, left: 0, width: 0, height: 0 },
-  style,
-  rtl,
-  children,
-  ...rest
-}) => {
-  if (!rect) {
-    return null;
+const GridItem = React.forwardRef(
+  (
+    {
+      itemKey,
+      index,
+      component: Element,
+      rect = { top: 0, left: 0, width: 0, height: 0 },
+      style,
+      rtl,
+      children,
+      ...rest
+    },
+    ref
+  ) => {
+    if (!rect) {
+      return null;
+    }
+
+    const itemStyle = {
+      ...style,
+      display: "block",
+      position: "absolute",
+      top: 0,
+      ...(rtl ? { right: 0 } : { left: 0 }),
+      width: rect.width || 0,
+      transform:
+        "translateX(" +
+        (rtl ? -(rect.left || 0) : rect.left || 0) +
+        "px) translateY(" +
+        (rect.top || 0) +
+        "px)",
+      zIndex: 1, // Remove minHeight to allow natural content height
+    };
+
+    return (
+      <Element {...rest} ref={ref} className="grid-item" style={itemStyle}>
+        {children}
+      </Element>
+    );
   }
-
-  const itemStyle = {
-    ...style,
-    display: "block",
-    position: "absolute",
-    top: 0,
-    ...(rtl ? { right: 0 } : { left: 0 }),
-    width: rect.width || 0,
-    transform:
-      "translateX(" +
-      (rtl ? -(rect.left || 0) : rect.left || 0) +
-      "px) translateY(" +
-      (rect.top || 0) +
-      "px)",
-    minHeight: "100px", // Add a default minimum height
-    zIndex: 1, // Add z-index to help with stacking
-  };
-
-  return (
-    <Element {...rest} className="grid-item" style={itemStyle}>
-      {children}
-    </Element>
-  );
-};
+);
 
 GridItem.propTypes = {
   itemKey: PropTypes.string,
@@ -183,7 +184,6 @@ export class GridInline extends Component {
 
   constructor(props: InlineProps) {
     super(props);
-
     this.itemRefs = {};
     this.imgLoad = {};
     this.mounted = false;
@@ -203,7 +203,6 @@ export class GridInline extends Component {
 
   componentWillUnmount() {
     this.mounted = false;
-
     // Clean up any image loading listeners
     Object.keys(this.imgLoad).forEach((key) => {
       if (this.imgLoad[key]) {
@@ -218,33 +217,48 @@ export class GridInline extends Component {
     }
   }
 
+  // Updated getItemHeight to measure content more accurately
   getItemHeight(key: string): number {
-    if (key && this.itemRefs[key]) {
-      const el = this.itemRefs[key];
-      if (el) {
-        const candidate = [
-          el.scrollHeight,
-          el.clientHeight,
-          el.offsetHeight,
-          100, // Add default height
-        ].filter(isNumber);
-        return Math.max(...candidate);
-      }
+    if (!key || !this.itemRefs[key]) {
+      console.log(`[DEBUG] No ref found for key=${key}, using default height`);
+      return 100;
     }
-    return 100; // Return default height if no ref
+
+    const element = this.itemRefs[key];
+    // Get all child elements to find the maximum height
+    const children = element.getElementsByTagName("*");
+    const heights = [
+      element.offsetHeight,
+      element.scrollHeight,
+      element.clientHeight,
+      ...Array.from(children).map((child) => child.offsetHeight),
+    ].filter((h) => typeof h === "number" && h > 0);
+
+    if (heights.length === 0) {
+      console.log(
+        `[DEBUG] No valid heights found for key=${key}, using default height`
+      );
+      return 100;
+    }
+
+    const maxHeight = Math.max(...heights);
+    console.log(
+      `[DEBUG] getItemHeight for key=${key}: measured heights=`,
+      heights,
+      "-> selected height=",
+      maxHeight
+    );
+    return maxHeight;
   }
 
   doLayout(props: InlineProps): InlineState {
     if (!ExecutionEnvironment.canUseDOM) {
       return this.doLayoutForSSR(props);
     }
-
     const results = this.doLayoutForClient(props);
-
     if (this.mounted && typeof this.props.onLayout === "function") {
       this.props.onLayout();
     }
-
     return results;
   }
 
@@ -270,14 +284,19 @@ export class GridInline extends Component {
     let rects;
     if (!horizontal) {
       rects = childArray.map((child) => {
+        // Find the column with the smallest height
         const column = columnHeights.indexOf(Math.min(...columnHeights));
         const height = this.getItemHeight(child.key) || 0;
         const left = column * columnWidth + column * gutterWidth;
-        const top = columnHeights[column]; // Get the current top position
+        // The top position is simply the current height of this column
+        const top = columnHeights[column];
 
-        // Update the column height AFTER getting the top position
+        // Update the column height by adding this item's height plus gutter
         columnHeights[column] = top + Math.round(height) + gutterHeight;
 
+        console.log(
+          `[DEBUG] Child key=${child.key} => column=${column}, top=${top}, left=${left}, height=${height}`
+        );
         return { top, left, width: columnWidth, height };
       });
     } else {
@@ -287,7 +306,6 @@ export class GridInline extends Component {
         0
       );
       const maxHeight = sumHeights / maxColumn;
-
       let currentColumn = 0;
       rects = childArray.map((child) => {
         const column =
@@ -295,16 +313,19 @@ export class GridInline extends Component {
         const height = this.getItemHeight(child.key) || 0;
         const left = column * columnWidth + column * gutterWidth;
         const top = columnHeights[column];
-
         columnHeights[column] += Math.round(height) + gutterHeight;
         if (columnHeights[column] >= maxHeight) {
           currentColumn += 1;
         }
-
+        console.log(
+          `[DEBUG] (Horizontal) Child key=${child.key} => column=${column}, top=${top}, left=${left}, height=${height}`
+        );
         return { top, left, width: columnWidth, height };
       });
     }
 
+    console.log("[DEBUG] Final columnHeights:", columnHeights);
+    console.log("[DEBUG] Computed rects:", rects);
     const width = maxColumn * columnWidth + (maxColumn - 1) * gutterWidth;
     // For total height, we don't need to subtract gutterHeight since it's already factored in
     const height = Math.max(...columnHeights);
@@ -341,28 +362,20 @@ export class GridInline extends Component {
 
   handleItemRef = (key, node) => {
     if (node) {
+      console.log(`[DEBUG] Setting ref for key=${key}, node=`, node);
       this.itemRefs[key] = node;
 
-      if (
-        this.props.monitorImagesLoaded &&
-        typeof imagesLoaded === "function"
-      ) {
-        const imgLoad = imagesLoaded(node);
-
-        imgLoad.once("always", () => {
-          requestAnimationFrame(() => {
+      // Add a small delay to ensure content is rendered
+      setTimeout(() => {
+        requestAnimationFrame(() => {
+          if (this.mounted) {
+            console.log(`[DEBUG] Updating layout after ref set for key=${key}`);
             this.updateLayout(this.props);
-          });
+          }
         });
-
-        this.imgLoad[key] = imgLoad;
-      }
-
-      this.updateLayout(this.props);
+      }, 50);
     } else {
-      // Cleanup when ref is removed
       delete this.itemRefs[key];
-
       if (this.imgLoad[key]) {
         this.imgLoad[key].off("always");
         delete this.imgLoad[key];
@@ -385,18 +398,15 @@ export class GridInline extends Component {
       rtl,
       ...rest
     } = this.props;
-
     const { rects, actualWidth, height } = this.state;
     const containerSize = {
       actualWidth,
       width: size.width == null ? 0 : size.width,
       height,
     };
-
     const validChildren = React.Children.toArray(children).filter((child) =>
       isValidElement(child)
     );
-
     return (
       <Component
         className={className}
@@ -461,7 +471,6 @@ export default class StackGrid extends Component {
 
   handleRef = (grid: GridInline) => {
     this.grid = grid;
-
     if (typeof this.props.gridRef === "function") {
       this.props.gridRef(this);
     }
@@ -469,9 +478,7 @@ export default class StackGrid extends Component {
 
   render() {
     const { enableSSR, gridRef, ...rest } = this.props;
-
     sizeMe.enableSSRBehaviour = enableSSR;
-
     return <SizeAwareGridInline {...rest} refCallback={this.handleRef} />;
   }
 }
