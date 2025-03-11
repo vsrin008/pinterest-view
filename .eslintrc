@@ -17,15 +17,19 @@
       "presets": ["@babel/preset-react", "@babel/preset-flow"]
     }
   },
-  "plugins": ["jest", "flowtype"],
+  "plugins": ["jest", "flowtype", "react"],
   "extends": [
     "airbnb",
     "plugin:jest/recommended",
-    "plugin:flowtype/recommended"
+    "plugin:flowtype/recommended",
+    "plugin:react/recommended"
   ],
   "settings": {
     "flowtype": {
       "onlyFilesWithFlowAnnotation": true
+    },
+    "react": {
+      "version": "detect"
     }
   },
   "rules": {
@@ -70,6 +74,11 @@
     "implicit-arrow-linebreak": "off",
     "no-confusing-arrow": "off",
     "no-plusplus": "off",
-    "no-param-reassign": "off"
+    "no-param-reassign": "off",
+    "max-classes-per-file": "off",
+    "react/destructuring-assignment": "off",
+    "react/no-unused-prop-types": "off",
+    "react/forbid-prop-types": "off",
+    "class-methods-use-this": "off"
   }
 }

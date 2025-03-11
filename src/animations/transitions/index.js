@@ -7,7 +7,7 @@ export const fadeUp = {
   }),
   appeared: () => ({
     opacity: 1,
-    transform: "translateY(0)",
+    transform: 'translateY(0)',
   }),
   enter: (rect) => ({
     opacity: 0,
@@ -15,7 +15,7 @@ export const fadeUp = {
   }),
   entered: () => ({
     opacity: 1,
-    transform: "translateY(0)",
+    transform: 'translateY(0)',
   }),
   leaved: (rect) => ({
     opacity: 0,
@@ -30,7 +30,7 @@ export const fadeDown = {
   }),
   appeared: () => ({
     opacity: 1,
-    transform: "translateY(0)",
+    transform: 'translateY(0)',
   }),
   enter: (rect) => ({
     opacity: 0,
@@ -38,7 +38,7 @@ export const fadeDown = {
   }),
   entered: () => ({
     opacity: 1,
-    transform: "translateY(0)",
+    transform: 'translateY(0)',
   }),
   leaved: (rect) => ({
     opacity: 0,
@@ -53,7 +53,7 @@ export const fadeLeft = {
   }),
   appeared: () => ({
     opacity: 1,
-    transform: "translateX(0)",
+    transform: 'translateX(0)',
   }),
   enter: (rect) => ({
     opacity: 0,
@@ -61,7 +61,7 @@ export const fadeLeft = {
   }),
   entered: () => ({
     opacity: 1,
-    transform: "translateX(0)",
+    transform: 'translateX(0)',
   }),
   leaved: (rect) => ({
     opacity: 0,
@@ -76,7 +76,7 @@ export const fadeRight = {
   }),
   appeared: () => ({
     opacity: 1,
-    transform: "translateX(0)",
+    transform: 'translateX(0)',
   }),
   enter: (rect) => ({
     opacity: 0,
@@ -84,7 +84,7 @@ export const fadeRight = {
   }),
   entered: () => ({
     opacity: 1,
-    transform: "translateX(0)",
+    transform: 'translateX(0)',
   }),
   leaved: (rect) => ({
     opacity: 0,

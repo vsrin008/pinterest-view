@@ -1,6 +1,6 @@
-import React from "react";
-import { render, screen } from "@testing-library/react";
-import GridItem from "../GridItem";
+import React from 'react';
+import { render, screen } from '@testing-library/react';
+import GridItem from '../GridItem';
 
 const mockRect = {
   top: 0,
@@ -15,11 +15,11 @@ const mockContainerSize = {
 };
 
 const mockTransitionFunctions = {
-  appear: () => ({ opacity: 0, transform: "scale(0)" }),
-  appeared: () => ({ opacity: 1, transform: "scale(1)" }),
-  enter: () => ({ opacity: 0, transform: "scale(0)" }),
-  entered: () => ({ opacity: 1, transform: "scale(1)" }),
-  leaved: () => ({ opacity: 0, transform: "scale(0)" }),
+  appear: () => ({ opacity: 0, transform: 'scale(0)' }),
+  appeared: () => ({ opacity: 1, transform: 'scale(1)' }),
+  enter: () => ({ opacity: 0, transform: 'scale(0)' }),
+  entered: () => ({ opacity: 1, transform: 'scale(1)' }),
+  leaved: () => ({ opacity: 0, transform: 'scale(0)' }),
 };
 
 const mockCallbacks = {
@@ -27,8 +27,8 @@ const mockCallbacks = {
   onUnmount: () => {},
 };
 
-describe("GridItem", () => {
-  it("renders children correctly", () => {
+describe('GridItem', () => {
+  it('renders children correctly', () => {
     const { container } = render(
       <GridItem
         rect={mockRect}
@@ -40,17 +40,17 @@ describe("GridItem", () => {
         <div data-testid="child">Test Content</div>
       </GridItem>
     );
-    const child = screen.getByTestId("child");
+    const child = screen.getByTestId('child');
     expect(child).toBeInTheDocument();
-    expect(child).toHaveTextContent("Test Content");
+    expect(child).toHaveTextContent('Test Content');
   });
 
-  it("applies correct styles", () => {
+  it('applies correct styles', () => {
     const { container } = render(
       <GridItem
         rect={mockRect}
         component="div"
-        style={{ backgroundColor: "red" }}
+        style={{ backgroundColor: 'red' }}
         {...mockTransitionFunctions}
         {...mockCallbacks}
       >
@@ -59,21 +59,21 @@ describe("GridItem", () => {
     );
     const gridItem = container.firstChild;
     expect(gridItem).toHaveStyle({
-      backgroundColor: "red",
-      position: "absolute",
-      top: "0px",
-      left: "0px",
-      width: "100px",
-      height: "100px",
+      backgroundColor: 'red',
+      position: 'absolute',
+      top: '0px',
+      left: '0px',
+      width: '100px',
+      height: '100px',
     });
   });
 
-  it("applies RTL styles", () => {
+  it('applies RTL styles', () => {
     const { container } = render(
       <GridItem
         rect={mockRect}
         component="div"
-        rtl={true}
+        rtl
         style={{}}
         {...mockTransitionFunctions}
         {...mockCallbacks}
@@ -83,15 +83,15 @@ describe("GridItem", () => {
     );
     const gridItem = container.firstChild;
     expect(gridItem).toHaveStyle({
-      position: "absolute",
-      top: "0px",
-      right: "0px",
-      width: "100px",
-      height: "100px",
+      position: 'absolute',
+      top: '0px',
+      right: '0px',
+      width: '100px',
+      height: '100px',
     });
   });
 
-  it("applies transition styles", () => {
+  it('applies transition styles', () => {
     const { container } = render(
       <GridItem
         rect={mockRect}
@@ -108,7 +108,7 @@ describe("GridItem", () => {
     );
     const gridItem = container.firstChild;
     expect(gridItem).toHaveStyle({
-      transition: "all 300ms ease-out",
+      transition: 'all 300ms ease-out',
     });
   });
 });

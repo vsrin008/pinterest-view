@@ -1,24 +1,25 @@
 // @flow
-import React, { Component, isValidElement } from "react";
-import ReactDOM from "react-dom";
-import PropTypes from "prop-types";
-import sizeMe from "react-sizeme";
-import shallowequal from "shallowequal";
-import ExecutionEnvironment from "exenv";
-import invariant from "invariant";
+import React, { Component, isValidElement } from 'react';
+import ReactDOM from 'react-dom';
+import PropTypes from 'prop-types';
+import sizeMe from 'react-sizeme';
+import shallowequal from 'shallowequal';
+import ExecutionEnvironment from 'exenv';
+import invariant from 'invariant';
 
 // Import only necessary utils
-import { transition } from "../utils/style-helper";
+import { transition } from '../utils/style-helper';
 
-import type { Units } from "../types";
+import type { Units } from '../types';
 
 const imagesLoaded = ExecutionEnvironment.canUseDOM
-  ? require("imagesloaded")
+  ? require('imagesloaded')
   : null;
 
-const isNumber = (v: any): boolean => typeof v === "number" && isFinite(v);
+const isNumber = (v: any): boolean =>
+  typeof v === 'number' && Number.isFinite(v);
 const isPercentageNumber = (v: any): boolean =>
-  typeof v === "string" && /^\d+(\.\d+)?%$/.test(v);
+  typeof v === 'string' && /^\d+(\.\d+)?%$/.test(v);
 
 // Helper to create arrays of a specific length with the same value
 const createArray = <T>(v: T, l: number): T[] => {
@@ -46,7 +47,7 @@ const getColumnLengthAndWidth = (
     const columnWidth = (width - gutter * (maxColumn - 1)) / maxColumn;
     return [maxColumn, columnWidth];
   }
-  invariant(false, "Should be columnWidth is a number or percentage string.");
+  invariant(false, 'Should be columnWidth is a number or percentage string.');
 };
 /* eslint-enable consistent-return */
 
@@ -71,8 +72,8 @@ const GridItem = React.forwardRef(
 
     const itemStyle = {
       ...style,
-      display: "block",
-      position: "absolute",
+      display: 'block',
+      position: 'absolute',
       top: 0,
       ...(rtl ? { right: 0 } : { left: 0 }),
       width: rect.width || 0,
@@ -147,7 +148,7 @@ type InlineProps = Props & {
 const propTypes = {
   children: PropTypes.node,
   className: PropTypes.string,
-  style: PropTypes.object,
+  style: PropTypes.shape({}),
   gridRef: PropTypes.func,
   component: PropTypes.string,
   itemComponent: PropTypes.string,
@@ -166,10 +167,15 @@ const propTypes = {
 
 export class GridInline extends Component {
   containerRef = React.createRef();
+
   props: InlineProps;
+
   state: InlineState;
+
   itemRefs: { [key: string]: any };
+
   imgLoad: Object;
+
   mounted: boolean;
 
   static propTypes = {
@@ -193,7 +199,7 @@ export class GridInline extends Component {
     this.updateLayout(this.props);
   }
 
-  componentDidUpdate(prevProps: InlineProps) {
+  componentDidUpdate(prevProps) {
     if (!shallowequal(prevProps, this.props)) {
       this.updateLayout(this.props);
     }
@@ -204,7 +210,7 @@ export class GridInline extends Component {
     // Clean up any image loading listeners
     Object.keys(this.imgLoad).forEach((key) => {
       if (this.imgLoad[key]) {
-        this.imgLoad[key].off("always");
+        this.imgLoad[key].off('always');
       }
     });
   }
@@ -230,7 +236,7 @@ export class GridInline extends Component {
     console.log(
       `[DEBUG] getItemHeight for key=${key}:`,
       candidate,
-      "->",
+      '->',
       Math.max(...candidate)
     );
     return Math.max(...candidate);
@@ -241,7 +247,7 @@ export class GridInline extends Component {
       return this.doLayoutForSSR(props);
     }
     const results = this.doLayoutForClient(props);
-    if (this.mounted && typeof this.props.onLayout === "function") {
+    if (this.mounted && typeof this.props.onLayout === 'function') {
       this.props.onLayout();
     }
     return results;
@@ -290,8 +296,8 @@ export class GridInline extends Component {
       const maxHeight = sumHeights / maxColumn;
       let currentColumn = 0;
       rects = childArray.map((child) => {
-        const column =
-          currentColumn >= maxColumn - 1 ? maxColumn - 1 : currentColumn;
+        const column
+          = currentColumn >= maxColumn - 1 ? maxColumn - 1 : currentColumn;
         const height = this.getItemHeight(child.key) || 0;
         const left = Math.round(column * (columnWidth + gutterWidth));
         const top = Math.round(columnHeights[column]);
@@ -303,8 +309,8 @@ export class GridInline extends Component {
       });
     }
 
-    console.log("[DEBUG] Final columnHeights:", columnHeights);
-    console.log("[DEBUG] Computed rects:", rects);
+    console.log('[DEBUG] Final columnHeights:', columnHeights);
+    console.log('[DEBUG] Computed rects:', rects);
     const width = maxColumn * columnWidth + (maxColumn - 1) * gutterWidth;
     const height = Math.max(...columnHeights) - gutterHeight;
     const offset = Math.max(0, (containerWidth - width) / 2);
@@ -345,7 +351,7 @@ export class GridInline extends Component {
   handleItemRef = (key, node) => {
     if (node) {
       if (this.itemRefs[key] && this.itemRefs[key] !== node) {
-        console.error("Duplicate item ref detected:", key);
+        console.error('Duplicate item ref detected:', key);
         return;
       }
       this.itemRefs[key] = node;
@@ -357,7 +363,7 @@ export class GridInline extends Component {
     } else {
       delete this.itemRefs[key];
       if (this.imgLoad[key]) {
-        this.imgLoad[key].off("always");
+        this.imgLoad[key].off('always');
         delete this.imgLoad[key];
       }
     }
@@ -371,7 +377,7 @@ export class GridInline extends Component {
     const {
       className,
       style,
-      component: Component,
+      component: GridComponent,
       itemComponent,
       children,
       rtl,
@@ -379,17 +385,16 @@ export class GridInline extends Component {
     const { rects, height } = this.state;
 
     const containerStyle = {
-      position: "relative",
+      position: 'relative',
       height,
       ...style,
     };
 
-    const validChildren = React.Children.toArray(children).filter((child) =>
-      isValidElement(child)
-    );
+    const validChildren
+      = React.Children.toArray(children).filter(isValidElement);
 
     return (
-      <Component
+      <GridComponent
         data-testid="stack-grid-container"
         className={className}
         style={containerStyle}
@@ -408,7 +413,7 @@ export class GridInline extends Component {
             {child}
           </GridItem>
         ))}
-      </Component>
+      </GridComponent>
     );
   }
 }
@@ -422,11 +427,12 @@ const SizeAwareGridInline = sizeMe({
 
 export default class StackGrid extends Component {
   static propTypes = propTypes;
+
   static defaultProps = {
     style: {},
     gridRef: null,
-    component: "div",
-    itemComponent: "span",
+    component: 'div',
+    itemComponent: 'span',
     columnWidth: 150,
     gutterWidth: 5,
     gutterHeight: 5,
@@ -440,6 +446,7 @@ export default class StackGrid extends Component {
   };
 
   props: Props;
+
   grid: GridInline;
 
   updateLayout() {
@@ -450,7 +457,7 @@ export default class StackGrid extends Component {
 
   handleRef = (grid: GridInline) => {
     this.grid = grid;
-    if (typeof this.props.gridRef === "function") {
+    if (typeof this.props.gridRef === 'function') {
       this.props.gridRef(this);
     }
   };

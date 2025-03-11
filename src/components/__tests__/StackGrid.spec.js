@@ -1,6 +1,6 @@
-import React from "react";
-import { render, screen } from "@testing-library/react";
-import StackGrid, { GridInline } from "../StackGrid";
+import React from 'react';
+import { render, screen } from '@testing-library/react';
+import StackGrid, { GridInline } from '../StackGrid';
 
 const mockRect = {
   top: 0,
@@ -17,7 +17,7 @@ const mockSize = {
 };
 
 // Mock react-sizeme
-jest.mock("react-sizeme", () => ({
+jest.mock('react-sizeme', () => ({
   __esModule: true,
   default: (config) => (Component) =>
     function SizeMeWrapper(props) {
@@ -25,14 +25,14 @@ jest.mock("react-sizeme", () => ({
     },
 }));
 
-describe("StackGrid", () => {
+describe('StackGrid', () => {
   beforeEach(() => {
     // Clear mock function calls before each test
     mockSize.registerRef.mockClear();
     mockSize.unregisterRef.mockClear();
   });
 
-  it("renders children correctly", () => {
+  it('renders children correctly', () => {
     const { container } = render(
       <StackGrid columnWidth={100}>
         <div data-testid="child1">Item 1</div>
@@ -44,7 +44,7 @@ describe("StackGrid", () => {
     expect(container.firstChild).toBeInTheDocument();
   });
 
-  it("applies correct styles", () => {
+  it('applies correct styles', () => {
     const { container } = render(
       <StackGrid columnWidth={100} gutterWidth={10} gutterHeight={10}>
         <div>Test Content</div>
@@ -57,11 +57,11 @@ describe("StackGrid", () => {
     );
     expect(gridContainer).toBeInTheDocument();
     expect(gridContainer).toHaveStyle({
-      position: "relative",
+      position: 'relative',
     });
   });
 
-  it("renders GridInline correctly", () => {
+  it('renders GridInline correctly', () => {
     const { container } = render(
       <GridInline
         rect={mockRect}
@@ -84,7 +84,7 @@ describe("StackGrid", () => {
     expect(mockSize.registerRef).toHaveBeenCalled();
   });
 
-  it("renders with size props", () => {
+  it('renders with size props', () => {
     const { container } = render(
       <StackGrid
         columnWidth={100}
