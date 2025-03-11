@@ -50,7 +50,7 @@ const DemoItem = ({ color, height, index }) => (
 // Generate mock data for our grid
 const generateItems = (count) => {
   return Array.from({ length: count }, (_, i) => ({
-    key: `item-${i}`,
+    key: `item-${Date.now()}-${i}`,
     color: getRandomColor(),
     height: getRandomHeight(),
     index: i + 1,
@@ -59,6 +59,9 @@ const generateItems = (count) => {
 
 const SimplifiedDemo = () => {
   const [items, setItems] = useState(generateItems(20));
+  const [usedKeys, setUsedKeys] = useState(
+    new Set(items.map((item) => item.key))
+  );
   const [columnWidth, setColumnWidth] = useState(200);
   const [gutterSize, setGutterSize] = useState(10);
   const [isRTL, setIsRTL] = useState(false);
@@ -66,23 +69,58 @@ const SimplifiedDemo = () => {
 
   // Controls for demonstration
   const addItems = () => {
-    const newItems = generateItems(5).map((item) => ({
-      ...item,
-      key: `item-${items.length + parseInt(item.key.split("-")[1], 10)}`,
-      index: items.length + parseInt(item.key.split("-")[1], 10) + 1,
-    }));
+    const newItems = generateItems(5).map((item, idx) => {
+      let key = item.key;
+      while (usedKeys.has(key)) {
+        key = `item-${Date.now()}-${items.length + idx}-${Math.random()
+          .toString(36)
+          .substr(2, 9)}`;
+      }
+      usedKeys.add(key);
+      return {
+        ...item,
+        key,
+        index: items.length + idx + 1,
+      };
+    });
+    setUsedKeys(new Set([...usedKeys, ...newItems.map((item) => item.key)]));
     setItems([...items, ...newItems]);
   };
 
   const removeItems = () => {
     if (items.length > 5) {
+      const itemsToRemove = items.slice(items.length - 5);
+      const newUsedKeys = new Set(usedKeys);
+      itemsToRemove.forEach((item) => newUsedKeys.delete(item.key));
+      setUsedKeys(newUsedKeys);
       setItems(items.slice(0, items.length - 5));
     }
   };
 
   const shuffleItems = () => {
-    const shuffled = [...items].sort(() => 0.5 - Math.random());
-    setItems(shuffled);
+    const itemsToShuffle = [...items];
+    for (let i = itemsToShuffle.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [itemsToShuffle[i], itemsToShuffle[j]] = [
+        itemsToShuffle[j],
+        itemsToShuffle[i],
+      ];
+
+      itemsToShuffle[i].index = i + 1;
+      itemsToShuffle[j].index = j + 1;
+    }
+
+    const keySet = new Set();
+    const validItems = itemsToShuffle.filter((item) => {
+      if (keySet.has(item.key)) {
+        console.error("Duplicate key detected:", item.key);
+        return false;
+      }
+      keySet.add(item.key);
+      return true;
+    });
+
+    setItems(validItems);
   };
 
   // Grid ref for manual updates

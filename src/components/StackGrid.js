@@ -217,39 +217,68 @@ export class GridInline extends Component {
     }
   }
 
-  // Updated getItemHeight to measure content more accurately
   getItemHeight(key: string): number {
     if (!key || !this.itemRefs[key]) {
-      console.log(`[DEBUG] No ref found for key=${key}, using default height`);
-      return 100;
+      return 100; // Default height if no ref
     }
 
     const element = this.itemRefs[key];
-    // Get all child elements to find the maximum height
+    if (!element) return 100;
+
+    // Get all child elements including images
     const children = element.getElementsByTagName("*");
+    const images = element.getElementsByTagName("img");
+
+    // Wait for images to load if they exist
+    if (images.length > 0 && this.props.monitorImagesLoaded) {
+      Array.from(images).forEach((img) => {
+        if (!img.complete) {
+          img.addEventListener("load", () => {
+            if (this.mounted) {
+              this.updateLayout();
+            }
+          });
+        }
+      });
+    }
+
+    // Get content height including padding and margins
+    const computedStyle = window.getComputedStyle(element);
+    const marginTop = parseFloat(computedStyle.marginTop) || 0;
+    const marginBottom = parseFloat(computedStyle.marginBottom) || 0;
+
+    // Calculate maximum height from all possible sources
     const heights = [
       element.offsetHeight,
       element.scrollHeight,
       element.clientHeight,
-      ...Array.from(children).map((child) => child.offsetHeight),
+      ...Array.from(children).map((child) => {
+        const childStyle = window.getComputedStyle(child);
+        const totalHeight =
+          child.offsetHeight +
+          (parseFloat(childStyle.marginTop) || 0) +
+          (parseFloat(childStyle.marginBottom) || 0);
+        return totalHeight;
+      }),
     ].filter((h) => typeof h === "number" && h > 0);
 
-    if (heights.length === 0) {
-      console.log(
-        `[DEBUG] No valid heights found for key=${key}, using default height`
-      );
-      return 100;
-    }
-
-    const maxHeight = Math.max(...heights);
-    console.log(
-      `[DEBUG] getItemHeight for key=${key}: measured heights=`,
-      heights,
-      "-> selected height=",
-      maxHeight
-    );
-    return maxHeight;
+    const contentHeight = Math.max(...heights) + marginTop + marginBottom;
+    return Math.max(contentHeight, 100); // Ensure minimum height of 100px
   }
+
+  updateLayoutDebounced = (() => {
+    let timeoutId = null;
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      timeoutId = setTimeout(() => {
+        if (this.mounted) {
+          this.updateLayout();
+        }
+      }, 100); // 100ms debounce
+    };
+  })();
 
   doLayout(props: InlineProps): InlineState {
     if (!ExecutionEnvironment.canUseDOM) {
@@ -271,67 +300,122 @@ export class GridInline extends Component {
       horizontal,
     } = props;
 
+    // Validate child keys for uniqueness
     const childArray = React.Children.toArray(props.children).filter(
       isValidElement
     );
+    const keySet = new Set();
+    const validChildren = childArray.filter((child) => {
+      if (!child.key) {
+        console.error("Child element missing key:", child);
+        return false;
+      }
+      if (keySet.has(child.key)) {
+        console.error("Duplicate key detected:", child.key);
+        return false;
+      }
+      keySet.add(child.key);
+      return true;
+    });
+
     const [maxColumn, columnWidth] = getColumnLengthAndWidth(
       containerWidth,
       rawColumnWidth,
       gutterWidth
     );
+
+    // Initialize column tracking with key validation
     const columnHeights = createArray(0, maxColumn);
+    const columnItems = createArray([], maxColumn).map(() => []);
+    const processedKeys = new Set();
 
     let rects;
     if (!horizontal) {
-      rects = childArray.map((child) => {
-        // Find the column with the smallest height
-        const column = columnHeights.indexOf(Math.min(...columnHeights));
-        const height = this.getItemHeight(child.key) || 0;
-        const left = column * columnWidth + column * gutterWidth;
-        // The top position is simply the current height of this column
-        const top = columnHeights[column];
+      // Vertical layout
+      rects = validChildren
+        .map((child) => {
+          if (processedKeys.has(child.key)) {
+            console.error("Duplicate key found during layout:", child.key);
+            return null;
+          }
+          processedKeys.add(child.key);
 
-        // Update the column height by adding this item's height plus gutter
-        columnHeights[column] = top + Math.round(height) + gutterHeight;
+          // Find the column with the smallest height
+          const column = columnHeights.indexOf(Math.min(...columnHeights));
+          const height = Math.max(this.getItemHeight(child.key) || 0, 50);
+          const left = Math.round(column * (columnWidth + gutterWidth));
+          const top = Math.round(columnHeights[column]);
 
-        console.log(
-          `[DEBUG] Child key=${child.key} => column=${column}, top=${top}, left=${left}, height=${height}`
-        );
-        return { top, left, width: columnWidth, height };
-      });
+          // Track this item's position with key validation
+          columnItems[column].push({ key: child.key, top, height });
+
+          // Validate no overlap with previous items in this column
+          const prevItem = columnItems[column][columnItems[column].length - 2];
+          if (prevItem) {
+            const minTop = prevItem.top + prevItem.height + gutterHeight;
+            if (top < minTop) {
+              columnHeights[column] = minTop;
+            }
+          }
+
+          columnHeights[column] = top + height + gutterHeight;
+          return { top, left, width: columnWidth, height };
+        })
+        .filter(Boolean); // Remove any null items from duplicate keys
     } else {
-      const sumHeights = childArray.reduce(
+      // Similar validation for horizontal layout
+      const sumHeights = validChildren.reduce(
         (sum, child) =>
-          sum + Math.round(this.getItemHeight(child.key) || 0) + gutterHeight,
+          sum + Math.max(this.getItemHeight(child.key) || 0, 50) + gutterHeight,
         0
       );
       const maxHeight = sumHeights / maxColumn;
       let currentColumn = 0;
-      rects = childArray.map((child) => {
-        const column =
-          currentColumn >= maxColumn - 1 ? maxColumn - 1 : currentColumn;
-        const height = this.getItemHeight(child.key) || 0;
-        const left = column * columnWidth + column * gutterWidth;
-        const top = columnHeights[column];
-        columnHeights[column] += Math.round(height) + gutterHeight;
-        if (columnHeights[column] >= maxHeight) {
-          currentColumn += 1;
-        }
-        console.log(
-          `[DEBUG] (Horizontal) Child key=${child.key} => column=${column}, top=${top}, left=${left}, height=${height}`
-        );
-        return { top, left, width: columnWidth, height };
-      });
+
+      rects = validChildren
+        .map((child) => {
+          if (processedKeys.has(child.key)) {
+            console.error("Duplicate key found during layout:", child.key);
+            return null;
+          }
+          processedKeys.add(child.key);
+
+          const column =
+            currentColumn >= maxColumn - 1 ? maxColumn - 1 : currentColumn;
+          const height = Math.max(this.getItemHeight(child.key) || 0, 50);
+          const left = Math.round(column * (columnWidth + gutterWidth));
+          const top = Math.round(columnHeights[column]);
+
+          columnItems[column].push({ key: child.key, top, height });
+
+          const prevItem = columnItems[column][columnItems[column].length - 2];
+          if (prevItem) {
+            const minTop = prevItem.top + prevItem.height + gutterHeight;
+            if (top < minTop) {
+              columnHeights[column] = minTop;
+            }
+          }
+
+          columnHeights[column] += height + gutterHeight;
+          if (columnHeights[column] >= maxHeight) {
+            currentColumn = Math.min(currentColumn + 1, maxColumn - 1);
+          }
+
+          return { top, left, width: columnWidth, height };
+        })
+        .filter(Boolean);
     }
 
-    console.log("[DEBUG] Final columnHeights:", columnHeights);
-    console.log("[DEBUG] Computed rects:", rects);
+    // Calculate final dimensions
     const width = maxColumn * columnWidth + (maxColumn - 1) * gutterWidth;
-    // For total height, we don't need to subtract gutterHeight since it's already factored in
-    const height = Math.max(...columnHeights);
+    const height = Math.max(...columnHeights) - gutterHeight;
+
+    // Center the grid
+    const offset = Math.max(0, (containerWidth - width) / 2);
     const finalRects = rects.map((o) => ({
       ...o,
-      left: o.left + (containerWidth - width) / 2,
+      left: Math.round(o.left + offset),
+      top: Math.round(o.top),
     }));
 
     return { rects: finalRects, actualWidth: width, height, columnWidth };
@@ -353,27 +437,33 @@ export class GridInline extends Component {
   }
 
   updateLayout(props: ?InlineProps): void {
-    if (!props) {
-      this.setStateIfNeeded(this.doLayout(this.props));
-    } else {
-      this.setStateIfNeeded(this.doLayout(props));
-    }
+    if (!this.mounted) return;
+
+    const nextProps = props || this.props;
+    const newLayout = this.doLayout(nextProps);
+
+    this.setStateIfNeeded(newLayout, () => {
+      // Validate layout after update
+      requestAnimationFrame(() => {
+        this.validateLayout();
+      });
+    });
   }
 
   handleItemRef = (key, node) => {
     if (node) {
-      console.log(`[DEBUG] Setting ref for key=${key}, node=`, node);
+      // Validate that this key isn't already registered
+      if (this.itemRefs[key] && this.itemRefs[key] !== node) {
+        console.error("Duplicate item ref detected:", key);
+        return;
+      }
       this.itemRefs[key] = node;
 
-      // Add a small delay to ensure content is rendered
-      setTimeout(() => {
-        requestAnimationFrame(() => {
-          if (this.mounted) {
-            console.log(`[DEBUG] Updating layout after ref set for key=${key}`);
-            this.updateLayout(this.props);
-          }
-        });
-      }, 50);
+      requestAnimationFrame(() => {
+        if (this.mounted) {
+          this.updateLayoutDebounced();
+        }
+      });
     } else {
       delete this.itemRefs[key];
       if (this.imgLoad[key]) {
@@ -432,6 +522,42 @@ export class GridInline extends Component {
         ))}
       </Component>
     );
+  }
+
+  // Add layout validation method
+  validateLayout() {
+    if (!this.mounted) return;
+
+    const { rects } = this.state;
+    const { gutterWidth, gutterHeight } = this.props;
+
+    // Group items by column
+    const columnItems = {};
+    rects.forEach((rect, i) => {
+      const column = Math.floor(rect.left / (rect.width + gutterWidth));
+      if (!columnItems[column]) columnItems[column] = [];
+      columnItems[column].push({ ...rect, index: i });
+    });
+
+    // Check for overlaps or incorrect spacing
+    let needsUpdate = false;
+    Object.values(columnItems).forEach((items) => {
+      items.sort((a, b) => a.top - b.top);
+      items.forEach((item, i) => {
+        if (i > 0) {
+          const prevItem = items[i - 1];
+          const minTop = prevItem.top + prevItem.height + gutterHeight;
+          if (item.top < minTop) {
+            needsUpdate = true;
+          }
+        }
+      });
+    });
+
+    // If issues found, trigger a layout update
+    if (needsUpdate) {
+      this.updateLayout();
+    }
   }
 }
 

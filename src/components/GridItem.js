@@ -116,12 +116,33 @@ export default class GridItem extends Component {
 
   componentWillReceiveProps(nextProps: Props) {
     if (!shallowequal(nextProps, this.props)) {
-      raf(() => {
+      const { rect, duration } = nextProps;
+      
+      // Validate position change
+      const isSignificantChange = 
+        Math.abs((this.props.rect?.top || 0) - (rect?.top || 0)) > 1 ||
+        Math.abs((this.props.rect?.left || 0) - (rect?.left || 0)) > 1;
+
+      // Use RAF for smooth animation, but only for significant changes
+      if (isSignificantChange) {
+        raf(() => {
+          this.setStateIfNeeded({
+            ...this.state,
+            ...getPositionStyles(rect, 2, nextProps.rtl),
+            transition: transition(
+              ['transform'],
+              duration,
+              nextProps.easing
+            ),
+          });
+        });
+      } else {
+        // For minor adjustments, update without animation
         this.setStateIfNeeded({
           ...this.state,
-          ...getPositionStyles(nextProps.rect, 2, nextProps.rtl),
+          ...getPositionStyles(rect, 1, nextProps.rtl),
         });
-      });
+      }
     }
   }
 
@@ -133,7 +154,26 @@ export default class GridItem extends Component {
   }
 
   componentWillAppear(callback: Function) {
-    this.appearTimer = setTimeout(callback, this.props.appearDelay * this.props.index);
+    // Ensure initial position is set before animation starts
+    this.setStateIfNeeded({
+      ...this.state,
+      ...getPositionStyles(this.props.rect, 1, this.props.rtl),
+      transition: 'none',
+    });
+    
+    // Start appearance animation after a brief delay
+    this.appearTimer = setTimeout(() => {
+      this.setStateIfNeeded({
+        ...this.state,
+        ...getTransitionStyles('appear', this.props),
+        transition: transition(
+          ['opacity', 'transform'],
+          this.props.duration,
+          this.props.easing
+        ),
+      });
+      callback();
+    }, this.props.appearDelay * this.props.index);
   }
 
   componentDidAppear() {
@@ -225,17 +265,19 @@ export default class GridItem extends Component {
       top: 0,
       ...(rtl ? { right: 0 } : { left: 0 }),
       width: rect.width,
-      transition: transition(['opacity', 'transform'], duration, easing),
+      willChange: 'transform',
+      backfaceVisibility: 'hidden',
+      perspective: 1000,
+      transform: `translate3d(${rtl ? -Math.round(rect.left) : Math.round(rect.left)}px, ${Math.round(rect.top)}px, 0)`,
     }, units, vendorPrefix, userAgent);
 
-    /* eslint-disable no-return-assign */
     return (
       <Element
         {...rest}
         ref={node => this.node = node}
         style={style}
+        data-grid-item={itemKey}
       />
     );
-    /* eslint-enable no-return-assign */
   }
 }
