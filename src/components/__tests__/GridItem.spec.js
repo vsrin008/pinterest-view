@@ -10,39 +10,37 @@ const mockRect = {
 };
 
 const mockContainerSize = {
-  width: 300,
-  height: 300,
+  width: 800,
+  height: 600,
 };
 
 const mockTransitionFunctions = {
-  appear: () => ({ opacity: 0, transform: 'scale(0)' }),
-  appeared: () => ({ opacity: 1, transform: 'scale(1)' }),
-  enter: () => ({ opacity: 0, transform: 'scale(0)' }),
-  entered: () => ({ opacity: 1, transform: 'scale(1)' }),
-  leaved: () => ({ opacity: 0, transform: 'scale(0)' }),
+  appear: () => ({ opacity: 0 }),
+  appeared: () => ({ opacity: 1 }),
+  enter: () => ({ opacity: 0 }),
+  entered: () => ({ opacity: 1 }),
+  leaved: () => ({ opacity: 0 }),
 };
 
 const mockCallbacks = {
-  onMounted: () => {},
-  onUnmount: () => {},
+  onMounted: jest.fn(),
+  onUnmount: jest.fn(),
 };
 
 describe('GridItem', () => {
   it('renders children correctly', () => {
-    const { container } = render(
+    render(
       <GridItem
         rect={mockRect}
         component="div"
-        style={{}}
+        style={{ backgroundColor: 'red' }}
         {...mockTransitionFunctions}
         {...mockCallbacks}
       >
-        <div data-testid="child">Test Content</div>
+        <div>Test Content</div>
       </GridItem>
     );
-    const child = screen.getByTestId('child');
-    expect(child).toBeInTheDocument();
-    expect(child).toHaveTextContent('Test Content');
+    expect(screen.getByText('Test Content')).toBeInTheDocument();
   });
 
   it('applies correct styles', () => {

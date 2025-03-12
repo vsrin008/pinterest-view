@@ -1,159 +1,48 @@
-// @flow
 import React, { Component, isValidElement } from 'react';
-import ReactDOM from 'react-dom';
 import PropTypes from 'prop-types';
 import sizeMe from 'react-sizeme';
 import shallowequal from 'shallowequal';
 import ExecutionEnvironment from 'exenv';
 import invariant from 'invariant';
+import GridItem from './GridItem';
 
-// Import only necessary utils
-import { transition } from '../utils/style-helper';
-
-import type { Units } from '../types';
-
-const imagesLoaded = ExecutionEnvironment.canUseDOM
-  ? require('imagesloaded')
-  : null;
-
-const isNumber = (v: any): boolean =>
-  typeof v === 'number' && Number.isFinite(v);
-const isPercentageNumber = (v: any): boolean =>
-  typeof v === 'string' && /^\d+(\.\d+)?%$/.test(v);
+const isNumber = (v) => typeof v === 'number' && Number.isFinite(v);
+const isPercentageNumber = (v) => typeof v === 'string' && /^\d+(\.\d+)?%$/.test(v);
 
 // Helper to create arrays of a specific length with the same value
-const createArray = <T>(v: T, l: number): T[] => {
+const createArray = (v, l) => {
   const array = [];
   for (let i = 0; i < l; i += 1) array.push(v);
   return array;
 };
 
 /* eslint-disable consistent-return */
-const getColumnLengthAndWidth = (
-  width: number,
-  value: number | string,
-  gutter: number
-): [number, number] => {
+const getColumnLengthAndWidth = (containerWidth, value, gutter) => {
   if (isNumber(value)) {
     const columnWidth = parseFloat(value);
     return [
-      Math.floor((width - (width / columnWidth - 1) * gutter) / columnWidth),
+      Math.floor((containerWidth - (containerWidth / columnWidth - 1) * gutter) / columnWidth),
       columnWidth,
     ];
   }
   if (isPercentageNumber(value)) {
     const columnPercentage = parseFloat(value) / 100;
     const maxColumn = Math.floor(1 / columnPercentage);
-    const columnWidth = (width - gutter * (maxColumn - 1)) / maxColumn;
+    const columnWidth = (containerWidth - gutter * (maxColumn - 1)) / maxColumn;
     return [maxColumn, columnWidth];
   }
   invariant(false, 'Should be columnWidth is a number or percentage string.');
 };
 /* eslint-enable consistent-return */
 
-// Simplified GridItem component without transitions
-const GridItem = React.forwardRef(
-  (
-    {
-      itemKey,
-      index,
-      component: Element,
-      rect = { top: 0, left: 0, width: 0, height: 0 },
-      style,
-      rtl,
-      children,
-      ...rest
-    },
-    ref
-  ) => {
-    if (!rect) {
-      return null;
-    }
-
-    const itemStyle = {
-      ...style,
-      display: 'block',
-      position: 'absolute',
-      top: 0,
-      ...(rtl ? { right: 0 } : { left: 0 }),
-      width: rect.width || 0,
-      transform: `translateX(${
-        rtl ? -(rect.left || 0) : rect.left || 0
-      }px) translateY(${rect.top || 0}px)`,
-      zIndex: 1, // Remove minHeight to allow natural content height
-    };
-
-    return (
-      <Element {...rest} ref={ref} className="grid-item" style={itemStyle}>
-        {children}
-      </Element>
-    );
-  }
-);
-
-GridItem.propTypes = {
-  itemKey: PropTypes.string,
-  index: PropTypes.number,
-  component: PropTypes.string,
-  rect: PropTypes.shape({
-    top: PropTypes.number,
-    left: PropTypes.number,
-    width: PropTypes.number,
-    height: PropTypes.number,
-  }),
-  style: PropTypes.object,
-  rtl: PropTypes.bool,
-  children: PropTypes.node,
-};
-
-type Props = {
-  children: React$Element<any>,
-  className?: string,
-  style: Object,
-  gridRef?: Function,
-  component: string,
-  itemComponent: string,
-  columnWidth: number | string,
-  gutterWidth: number,
-  gutterHeight: number,
-  monitorImagesLoaded: boolean,
-  vendorPrefix: boolean,
-  userAgent: ?string,
-  enableSSR: boolean,
-  onLayout: Function,
-  horizontal: boolean,
-  rtl: boolean,
-};
-
-type InlineState = {
-  rects: Array<{
-    top: number,
-    left: number,
-    width: number,
-    height: number,
-  }>,
-  actualWidth: number,
-  height: number,
-  columnWidth: number,
-};
-
-type InlineProps = Props & {
-  refCallback: Function,
-  size: {
-    width: number,
-    height: number,
-  },
-};
-
 const propTypes = {
   children: PropTypes.node,
   className: PropTypes.string,
   style: PropTypes.shape({}),
   gridRef: PropTypes.func,
-  component: PropTypes.string,
-  itemComponent: PropTypes.string,
-  columnWidth: PropTypes.oneOfType([PropTypes.number, PropTypes.string])
-    .isRequired,
+  component: PropTypes.elementType,
+  itemComponent: PropTypes.elementType,
+  columnWidth: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   gutterWidth: PropTypes.number,
   gutterHeight: PropTypes.number,
   monitorImagesLoaded: PropTypes.bool,
@@ -163,34 +52,51 @@ const propTypes = {
   onLayout: PropTypes.func,
   horizontal: PropTypes.bool,
   rtl: PropTypes.bool,
+  size: PropTypes.shape({
+    width: PropTypes.number,
+    height: PropTypes.number,
+  }),
+  refCallback: PropTypes.func,
+};
+
+const defaultProps = {
+  children: null,
+  className: '',
+  style: {},
+  gridRef: null,
+  component: 'div',
+  itemComponent: 'div',
+  columnWidth: 150,
+  gutterWidth: 5,
+  gutterHeight: 5,
+  monitorImagesLoaded: false,
+  vendorPrefix: true,
+  userAgent: null,
+  enableSSR: false,
+  onLayout: null,
+  horizontal: false,
+  rtl: false,
+  size: null,
+  refCallback: () => {},
 };
 
 export class GridInline extends Component {
+  static displayName = 'GridInline';
+
+  static propTypes = propTypes;
+
+  static defaultProps = defaultProps;
+
   containerRef = React.createRef();
 
-  props: InlineProps;
+  itemRefs = {};
 
-  state: InlineState;
+  imgLoad = {};
 
-  itemRefs: { [key: string]: any };
+  mounted = false;
 
-  imgLoad: Object;
-
-  mounted: boolean;
-
-  static propTypes = {
-    ...propTypes,
-    size: PropTypes.shape({
-      width: PropTypes.number,
-      height: PropTypes.number,
-    }),
-  };
-
-  constructor(props: InlineProps) {
+  constructor(props) {
     super(props);
-    this.itemRefs = {};
-    this.imgLoad = {};
-    this.mounted = false;
     this.state = this.doLayout(props);
   }
 
@@ -215,13 +121,13 @@ export class GridInline extends Component {
     });
   }
 
-  setStateIfNeeded(state: Object) {
+  setStateIfNeeded(state) {
     if (this.mounted) {
       this.setState(state);
     }
   }
 
-  getItemHeight(key: string): number {
+  getItemHeight(key) {
     if (!key || !this.itemRefs[key]) {
       return 100; // Default height if no ref
     }
@@ -233,97 +139,64 @@ export class GridInline extends Component {
       element.clientHeight,
       100, // fallback default
     ].filter(isNumber);
-    console.log(
-      `[DEBUG] getItemHeight for key=${key}:`,
-      candidate,
-      '->',
-      Math.max(...candidate)
-    );
     return Math.max(...candidate);
   }
 
-  doLayout(props: InlineProps): InlineState {
+  doLayout(props) {
     if (!ExecutionEnvironment.canUseDOM) {
       return this.doLayoutForSSR(props);
     }
     const results = this.doLayoutForClient(props);
-    if (this.mounted && typeof this.props.onLayout === 'function') {
-      this.props.onLayout();
+    if (this.mounted && typeof props.onLayout === 'function') {
+      props.onLayout();
     }
     return results;
   }
 
-  doLayoutForClient(props: InlineProps): InlineState {
-    // Use a default size if none is provided (helps in tests)
-    const {
-      size,
-      columnWidth: rawColumnWidth,
-      gutterWidth,
-      gutterHeight,
-      horizontal,
-    } = props;
-    const containerWidth = size && size.width != null ? size.width : 800;
+  doLayoutForClient(props) {
+    const { size, children, columnWidth, gutterWidth, gutterHeight } = props;
+    const { width: containerWidth = 0 } = size || {};
 
-    const childArray = React.Children.toArray(props.children).filter(
-      isValidElement
-    );
-    const [maxColumn, columnWidth] = getColumnLengthAndWidth(
+    const [maxColumn, colWidth] = getColumnLengthAndWidth(
       containerWidth,
-      rawColumnWidth,
+      columnWidth,
       gutterWidth
     );
-    const columnHeights = createArray(0, maxColumn);
 
-    let rects;
-    if (!horizontal) {
-      rects = childArray.map((child) => {
-        const column = columnHeights.indexOf(Math.min(...columnHeights));
-        const height = this.getItemHeight(child.key) || 0;
-        const left = Math.round(column * (columnWidth + gutterWidth));
-        const top = Math.round(columnHeights[column]);
-        columnHeights[column] = top + Math.round(height) + gutterHeight;
-        console.log(
-          `[DEBUG] Child key=${child.key} => column=${column}, top=${top}, left=${left}, height=${height}`
-        );
-        return { top, left, width: columnWidth, height };
-      });
-    } else {
-      const sumHeights = childArray.reduce(
-        (sum, child) =>
-          sum + Math.round(this.getItemHeight(child.key) || 0) + gutterHeight,
-        0
-      );
-      const maxHeight = sumHeights / maxColumn;
-      let currentColumn = 0;
-      rects = childArray.map((child) => {
-        const column
-          = currentColumn >= maxColumn - 1 ? maxColumn - 1 : currentColumn;
-        const height = this.getItemHeight(child.key) || 0;
-        const left = Math.round(column * (columnWidth + gutterWidth));
-        const top = Math.round(columnHeights[column]);
-        columnHeights[column] += Math.round(height) + gutterHeight;
-        if (columnHeights[column] >= maxHeight) {
-          currentColumn = Math.min(currentColumn + 1, maxColumn - 1);
-        }
-        return { top, left, width: columnWidth, height };
-      });
+    if (!containerWidth || !maxColumn || !children) {
+      return {
+        rects: [],
+        actualWidth: containerWidth,
+        height: 0,
+        columnWidth: colWidth,
+      };
     }
 
-    console.log('[DEBUG] Final columnHeights:', columnHeights);
-    console.log('[DEBUG] Computed rects:', rects);
-    const width = maxColumn * columnWidth + (maxColumn - 1) * gutterWidth;
-    const height = Math.max(...columnHeights) - gutterHeight;
-    const offset = Math.max(0, (containerWidth - width) / 2);
-    const finalRects = rects.map((o) => ({
-      ...o,
-      left: Math.round(o.left + offset),
-      top: Math.round(o.top),
-    }));
+    const columnHeights = createArray(0, maxColumn);
 
-    return { rects: finalRects, actualWidth: width, height, columnWidth };
+    const rects = React.Children.toArray(children)
+      .filter(isValidElement)
+      .map((child) => {
+        const column = columnHeights.indexOf(Math.min(...columnHeights));
+        const height = this.getItemHeight(child.key);
+        const left = Math.round(column * colWidth + column * gutterWidth);
+        const top = Math.round(columnHeights[column]);
+        columnHeights[column] = top + Math.round(height) + gutterHeight;
+        return { top, left, width: colWidth, height };
+      });
+
+    const gridWidth = maxColumn * colWidth + (maxColumn - 1) * gutterWidth;
+    const height = Math.max(...columnHeights) - gutterHeight;
+
+    return {
+      rects,
+      actualWidth: gridWidth,
+      height,
+      columnWidth: colWidth,
+    };
   }
 
-  doLayoutForSSR(props: InlineProps): InlineState {
+  doLayoutForSSR(props) {
     return {
       rects: React.Children.toArray(props.children).map(() => ({
         top: 0,
@@ -337,23 +210,15 @@ export class GridInline extends Component {
     };
   }
 
-  updateLayout(props: ?InlineProps): void {
+  updateLayout(props) {
     if (!this.mounted) return;
     const nextProps = props || this.props;
     const newLayout = this.doLayout(nextProps);
-    this.setStateIfNeeded(newLayout, () => {
-      requestAnimationFrame(() => {
-        // Optionally, validate layout here
-      });
-    });
+    this.setStateIfNeeded(newLayout);
   }
 
   handleItemRef = (key, node) => {
     if (node) {
-      if (this.itemRefs[key] && this.itemRefs[key] !== node) {
-        console.error('Duplicate item ref detected:', key);
-        return;
-      }
       this.itemRefs[key] = node;
       requestAnimationFrame(() => {
         if (this.mounted) {
@@ -367,10 +232,6 @@ export class GridInline extends Component {
         delete this.imgLoad[key];
       }
     }
-  };
-
-  handleRef = (node) => {
-    this.props.refCallback(this);
   };
 
   render() {
@@ -393,8 +254,11 @@ export class GridInline extends Component {
     const validChildren
       = React.Children.toArray(children).filter(isValidElement);
 
+    const Wrapper = GridComponent || 'div';
+    const ItemWrapper = itemComponent || 'div';
+
     return (
-      <GridComponent
+      <Wrapper
         data-testid="stack-grid-container"
         className={className}
         style={containerStyle}
@@ -405,7 +269,7 @@ export class GridInline extends Component {
             key={child.key}
             itemKey={child.key}
             index={i}
-            component={itemComponent}
+            component={ItemWrapper}
             rect={rects[i]}
             rtl={rtl}
             ref={(node) => this.handleItemRef(child.key, node)}
@@ -413,58 +277,9 @@ export class GridInline extends Component {
             {child}
           </GridItem>
         ))}
-      </GridComponent>
+      </Wrapper>
     );
   }
 }
 
-const SizeAwareGridInline = sizeMe({
-  monitorWidth: true,
-  monitorHeight: false,
-  refreshRate: 16,
-  noPlaceholder: true,
-})(GridInline);
-
-export default class StackGrid extends Component {
-  static propTypes = propTypes;
-
-  static defaultProps = {
-    style: {},
-    gridRef: null,
-    component: 'div',
-    itemComponent: 'span',
-    columnWidth: 150,
-    gutterWidth: 5,
-    gutterHeight: 5,
-    monitorImagesLoaded: false,
-    vendorPrefix: true,
-    userAgent: null,
-    enableSSR: false,
-    onLayout: null,
-    horizontal: false,
-    rtl: false,
-  };
-
-  props: Props;
-
-  grid: GridInline;
-
-  updateLayout() {
-    if (this.grid) {
-      this.grid.updateLayout();
-    }
-  }
-
-  handleRef = (grid: GridInline) => {
-    this.grid = grid;
-    if (typeof this.props.gridRef === 'function') {
-      this.props.gridRef(this);
-    }
-  };
-
-  render() {
-    const { enableSSR, gridRef, ...rest } = this.props;
-    sizeMe.enableSSRBehaviour = enableSSR;
-    return <SizeAwareGridInline {...rest} refCallback={this.handleRef} />;
-  }
-}
+export default sizeMe({ monitorHeight: true })(GridInline);

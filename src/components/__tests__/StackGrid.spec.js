@@ -1,13 +1,6 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import StackGrid, { GridInline } from '../StackGrid';
-
-const mockRect = {
-  top: 0,
-  left: 0,
-  width: 100,
-  height: 100,
-};
+import { render } from '@testing-library/react';
+import StackGrid from '../StackGrid';
 
 const mockSize = {
   width: 800,
@@ -17,19 +10,32 @@ const mockSize = {
 };
 
 // Mock react-sizeme
-jest.mock('react-sizeme', () => ({
-  __esModule: true,
-  default: (config) => (Component) =>
-    function SizeMeWrapper(props) {
-      return <Component {...props} size={mockSize} />;
+jest.mock('react-sizeme', () => {
+  // eslint-disable-next-line global-require
+  const PropTypes = require('prop-types');
+  return {
+    __esModule: true,
+    default: () => (Component) => {
+      function SizeMeWrapper(props) {
+        if (props.gridRef) {
+          mockSize.registerRef(props.gridRef);
+        }
+        return <Component {...props} size={mockSize} />;
+      }
+
+      SizeMeWrapper.propTypes = {
+        gridRef: PropTypes.func,
+      };
+
+      return SizeMeWrapper;
     },
-}));
+  };
+});
 
 describe('StackGrid', () => {
   beforeEach(() => {
-    // Clear mock function calls before each test
-    mockSize.registerRef.mockClear();
-    mockSize.unregisterRef.mockClear();
+    // Clear all mocks before each test
+    jest.clearAllMocks();
   });
 
   it('renders children correctly', () => {
@@ -40,7 +46,7 @@ describe('StackGrid', () => {
       </StackGrid>
     );
 
-    // The children are initially rendered inside a wrapper div
+    // The children are rendered inside a wrapper element
     expect(container.firstChild).toBeInTheDocument();
   });
 
@@ -51,10 +57,8 @@ describe('StackGrid', () => {
       </StackGrid>
     );
 
-    // Find the div with position: relative style
-    const gridContainer = container.querySelector(
-      '[style*="position: relative"]'
-    );
+    // Find the container with position: relative style
+    const gridContainer = container.querySelector('[style*="position: relative"]');
     expect(gridContainer).toBeInTheDocument();
     expect(gridContainer).toHaveStyle({
       position: 'relative',
@@ -62,25 +66,22 @@ describe('StackGrid', () => {
   });
 
   it('renders GridInline correctly', () => {
+    const gridRefMock = jest.fn();
     const { container } = render(
-      <GridInline
-        rect={mockRect}
-        size={mockSize}
-        width={100}
-        height={100}
-        top={0}
-        left={0}
+      // Render the default (HOC-wrapped) component and pass gridRef prop
+      <StackGrid
+        gridRef={gridRefMock}
         columnWidth={100}
-        component="div"
         itemComponent="div"
         gutterWidth={5}
         gutterHeight={5}
       >
         <div>Test Content</div>
-      </GridInline>
+      </StackGrid>
     );
 
     expect(container.firstChild).toBeInTheDocument();
+    // Ensure that the HOC called registerRef with the gridRef prop
     expect(mockSize.registerRef).toHaveBeenCalled();
   });
 

@@ -1,61 +1,5 @@
-// @flow
-import React, { Component } from 'react';
+import React from 'react';
 import PropTypes from 'prop-types';
-import shallowequal from 'shallowequal';
-import invariant from 'invariant';
-import { transition } from '../utils/style-helper';
-import {
-  requestAnimationFrame,
-  cancelAnimationFrame,
-} from '../animations/request-animation-frame';
-
-type Props = {
-  itemKey: string,
-  index: number,
-  component: string,
-  rect: {
-    top: number,
-    left: number,
-    width: number,
-    height: number,
-  },
-  containerSize: {
-    width: number,
-    height: number,
-    actualWidth: number,
-  },
-  duration: number,
-  easing: string,
-  appearDelay: number,
-  appear: Function,
-  appeared: Function,
-  enter: Function,
-  entered: Function,
-  leaved: Function,
-  units: {
-    length: string,
-    angle: string,
-  },
-  vendorPrefix: boolean,
-  userAgent: string,
-  onMounted: Function,
-  onUnmount: Function,
-  rtl: boolean,
-  style: Object,
-  children: React$Node,
-};
-
-const getTransitionStyles = (type, props) => {
-  const { rect, containerSize, index } = props;
-  return props[type](rect, containerSize, index);
-};
-
-const getPositionStyles = (rect, zIndex, rtl) => ({
-  transform: `translateX(${
-    rtl ? -Math.round(rect.left) : Math.round(rect.left)
-  }px) translateY(${Math.round(rect.top)}px)`,
-  zIndex,
-});
 
 const GridItem = React.forwardRef(
   (
@@ -66,6 +10,9 @@ const GridItem = React.forwardRef(
       rect = { top: 0, left: 0, width: 0, height: 0 },
       style,
       rtl,
+      transition,
+      duration,
+      easing,
       children,
       ...rest
     },
@@ -79,12 +26,13 @@ const GridItem = React.forwardRef(
       ...style,
       display: 'block',
       position: 'absolute',
-      top: 0,
-      ...(rtl ? { right: 0 } : { left: 0 }),
-      width: rect.width || 0,
-      transform: `translateX(${
-        rtl ? -(rect.left || 0) : rect.left || 0
-      }px) translateY(${rect.top || 0}px)`,
+      top: `${rect.top || 0}px`,
+      ...(rtl ? { right: `${rect.left || 0}px` } : { left: `${rect.left || 0}px` }),
+      width: `${rect.width || 0}px`,
+      height: `${rect.height || 0}px`,
+      ...(transition && {
+        transition: `${transition} ${duration}ms ${easing}`,
+      }),
       zIndex: 1,
     };
 
@@ -96,6 +44,8 @@ const GridItem = React.forwardRef(
   }
 );
 
+GridItem.displayName = 'GridItem';
+
 GridItem.propTypes = {
   itemKey: PropTypes.string,
   index: PropTypes.number,
@@ -106,8 +56,11 @@ GridItem.propTypes = {
     width: PropTypes.number,
     height: PropTypes.number,
   }),
-  style: PropTypes.shape({}),
+  style: PropTypes.object,
   rtl: PropTypes.bool,
+  transition: PropTypes.string,
+  duration: PropTypes.number,
+  easing: PropTypes.string,
   children: PropTypes.node,
 };
 
