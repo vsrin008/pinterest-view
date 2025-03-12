@@ -1,75 +1,79 @@
 // @flow
-import React, { useState, useEffect } from "react";
-import StackGrid from "../../src/components/StackGrid";
+import React, { useState } from 'react';
+import PropTypes from 'prop-types';
+import StackGrid from '../../src/components/StackGrid';
 
-// Generate random sized content for demonstration purposes
-const getRandomColor = () => {
-  const letters = "0123456789ABCDEF";
-  let color = "#";
-  for (let i = 0; i < 6; i++) {
-    color += letters[Math.floor(Math.random() * 16)];
-  }
-  return color;
-};
+const getRandomColor = () =>
+  `#${
+    Array.from({ length: 6 }, () =>
+      '0123456789ABCDEF'[Math.floor(Math.random() * 16)]
+    ).join('')
+  }`;
 
-const getRandomHeight = () => {
-  return 150 + Math.floor(Math.random() * 250);
-};
+const getRandomHeight = () => 150 + Math.floor(Math.random() * 250);
 
-// Demo item component with configurable height
-const DemoItem = ({ color, height, index }) => (
-  <div
-    style={{
-      backgroundColor: color,
-      height: `${height}px`,
-      width: "100%",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      color: "white",
-      fontWeight: "bold",
-      fontSize: "18px",
-      borderRadius: "8px",
-      overflow: "hidden",
-      boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-      transition: "transform 0.2s ease, box-shadow 0.2s ease",
-      cursor: "pointer",
-      boxSizing: "border-box",
-      padding: "15px",
-    }}
-  >
-    <div style={{ textAlign: "center" }}>
-      Item {index}
-      <br />
-      <small style={{ opacity: 0.8 }}>{height}px</small>
+function DemoItem({ color, height, index }) {
+  return (
+    <div
+      style={{
+        backgroundColor: color,
+        height: `${height}px`,
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: '18px',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        cursor: 'pointer',
+        boxSizing: 'border-box',
+        padding: '15px',
+      }}
+    >
+      <div style={{ textAlign: 'center' }}>
+        Item
+        <br />
+        {index}
+        <br />
+        <small style={{ opacity: 0.8 }}>
+          {height}
+          <br />
+          px
+        </small>
+      </div>
     </div>
-  </div>
-);
+  );
+}
 
-// Generate mock data for our grid
-const generateItems = (count) => {
-  return Array.from({ length: count }, (_, i) => ({
+DemoItem.propTypes = {
+  color: PropTypes.string.isRequired,
+  height: PropTypes.number.isRequired,
+  index: PropTypes.number.isRequired,
+};
+
+const generateItems = (count) =>
+  Array.from({ length: count }, (_, i) => ({
     key: `item-${Date.now()}-${i}`,
     color: getRandomColor(),
     height: getRandomHeight(),
     index: i + 1,
   }));
-};
 
-const SimplifiedDemo = () => {
+function SimplifiedDemo() {
   const [items, setItems] = useState(generateItems(20));
-  const [usedKeys, setUsedKeys] = useState(
-    new Set(items.map((item) => item.key))
-  );
+  const [usedKeys, setUsedKeys] = useState(new Set(items.map((item) => item.key)));
   const [columnWidth, setColumnWidth] = useState(200);
   const [gutterSize, setGutterSize] = useState(10);
   const [isRTL, setIsRTL] = useState(false);
   const [isHorizontal, setIsHorizontal] = useState(false);
 
-  // Controls for demonstration
   const addItems = () => {
     const newItems = generateItems(5).map((item, idx) => {
-      let key = item.key;
+      let { key } = item;
       while (usedKeys.has(key)) {
         key = `item-${Date.now()}-${items.length + idx}-${Math.random()
           .toString(36)
@@ -100,29 +104,23 @@ const SimplifiedDemo = () => {
     const itemsToShuffle = [...items];
     for (let i = itemsToShuffle.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [itemsToShuffle[i], itemsToShuffle[j]] = [
-        itemsToShuffle[j],
-        itemsToShuffle[i],
-      ];
-
+      [itemsToShuffle[i], itemsToShuffle[j]] = [itemsToShuffle[j], itemsToShuffle[i]];
       itemsToShuffle[i].index = i + 1;
       itemsToShuffle[j].index = j + 1;
     }
-
     const keySet = new Set();
     const validItems = itemsToShuffle.filter((item) => {
       if (keySet.has(item.key)) {
-        console.error("Duplicate key detected:", item.key);
+        // eslint-disable-next-line no-console
+        console.error('Duplicate key detected:', item.key);
         return false;
       }
       keySet.add(item.key);
       return true;
     });
-
     setItems(validItems);
   };
 
-  // Grid ref for manual updates
   let gridRef = null;
 
   return (
@@ -134,63 +132,94 @@ const SimplifiedDemo = () => {
       </p>
 
       <div style={{ marginBottom: 20 }}>
-        <div style={{ marginBottom: 10 }}>
-          <label style={{ marginRight: 10 }}>Column Width:</label>
-          <input
-            type="range"
-            min="100"
-            max="400"
-            value={columnWidth}
-            onChange={(e) => setColumnWidth(Number(e.target.value))}
-          />
-          <span style={{ marginLeft: 10 }}>{columnWidth}px</span>
+        <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <label htmlFor="columnWidth-input" style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ marginRight: 10 }}>Column Width:</span>
+              <input
+                id="columnWidth-input"
+                type="range"
+                min="100"
+                max="400"
+                value={columnWidth}
+                onChange={(e) => setColumnWidth(Number(e.target.value))}
+                aria-label="Column Width"
+              />
+            </label>
+          </div>
+          <div style={{ marginLeft: 10 }}>
+            {columnWidth}
+            {' '}
+            px
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <label htmlFor="gutterSize-input" style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ marginRight: 10 }}>Gutter Size:</span>
+              <input
+                id="gutterSize-input"
+                type="range"
+                min="0"
+                max="100"
+                value={gutterSize}
+                onChange={(e) => setGutterSize(Number(e.target.value))}
+                aria-label="Gutter Size"
+              />
+            </label>
+          </div>
+          <div style={{ marginLeft: 10 }}>
+            {gutterSize}
+            {' '}
+            px
+          </div>
         </div>
 
         <div style={{ marginBottom: 10 }}>
-          <label style={{ marginRight: 10 }}>Gutter Size:</label>
-          <input
-            type="range"
-            min="0"
-            max="50"
-            value={gutterSize}
-            onChange={(e) => setGutterSize(Number(e.target.value))}
-          />
-          <span style={{ marginLeft: 10 }}>{gutterSize}px</span>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <label htmlFor="rtl-checkbox" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              <input
+                id="rtl-checkbox"
+                type="checkbox"
+                checked={isRTL}
+                onChange={() => setIsRTL(!isRTL)}
+                style={{ marginRight: 5 }}
+                aria-label="RTL (Right-to-Left)"
+              />
+              <span>RTL (Right-to-Left)</span>
+            </label>
+          </div>
         </div>
 
         <div style={{ marginBottom: 10 }}>
-          <label>
-            <input
-              type="checkbox"
-              checked={isRTL}
-              onChange={() => setIsRTL(!isRTL)}
-            />
-            RTL (Right-to-Left)
-          </label>
-        </div>
-
-        <div style={{ marginBottom: 10 }}>
-          <label>
-            <input
-              type="checkbox"
-              checked={isHorizontal}
-              onChange={() => setIsHorizontal(!isHorizontal)}
-            />
-            Horizontal Layout
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <label htmlFor="horizontal-checkbox" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              <input
+                id="horizontal-checkbox"
+                type="checkbox"
+                checked={isHorizontal}
+                onChange={() => setIsHorizontal(!isHorizontal)}
+                style={{ marginRight: 5 }}
+                aria-label="Horizontal Layout"
+              />
+              <span>Horizontal Layout</span>
+            </label>
+          </div>
         </div>
 
         <div>
-          <button onClick={addItems} style={{ marginRight: 10 }}>
+          <button type="button" onClick={addItems} style={{ marginRight: 10 }}>
             Add Items
           </button>
-          <button onClick={removeItems} style={{ marginRight: 10 }}>
+          <button type="button" onClick={removeItems} style={{ marginRight: 10 }}>
             Remove Items
           </button>
-          <button onClick={shuffleItems} style={{ marginRight: 10 }}>
+          <button type="button" onClick={shuffleItems} style={{ marginRight: 10 }}>
             Shuffle Items
           </button>
           <button
+            type="button"
             onClick={() => gridRef && gridRef.updateLayout()}
             style={{ marginRight: 10 }}
           >
@@ -199,7 +228,7 @@ const SimplifiedDemo = () => {
         </div>
       </div>
 
-      <div style={{ padding: "20px 0" }}>
+      <div style={{ padding: '20px 0' }}>
         <StackGrid
           gridRef={(ref) => {
             gridRef = ref;
@@ -207,7 +236,7 @@ const SimplifiedDemo = () => {
           columnWidth={columnWidth}
           gutterWidth={gutterSize}
           gutterHeight={gutterSize}
-          monitorImagesLoaded={true}
+          monitorImagesLoaded
           rtl={isRTL}
           horizontal={isHorizontal}
         >
@@ -223,6 +252,6 @@ const SimplifiedDemo = () => {
       </div>
     </div>
   );
-};
+}
 
 export default SimplifiedDemo;

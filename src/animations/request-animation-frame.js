@@ -1,6 +1,6 @@
-// @flow
+// Removed Flow annotations
 
-const requestAnimationFrame = (callback: Function) => {
+const requestAnimationFrame = (callback) => {
   if (typeof window === 'undefined') return -1;
 
   return (
@@ -12,7 +12,7 @@ const requestAnimationFrame = (callback: Function) => {
   )(callback);
 };
 
-const cancelAnimationFrame = (id: number) => {
+const cancelAnimationFrame = (id) => {
   if (typeof window === 'undefined') return;
 
   (

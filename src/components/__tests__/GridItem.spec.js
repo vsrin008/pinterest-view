@@ -10,21 +10,21 @@ const mockRect = {
 };
 
 const mockContainerSize = {
-  width: 800,
-  height: 600,
+  width: 300,
+  height: 300,
 };
 
 const mockTransitionFunctions = {
-  appear: () => ({ opacity: 0 }),
-  appeared: () => ({ opacity: 1 }),
-  enter: () => ({ opacity: 0 }),
-  entered: () => ({ opacity: 1 }),
-  leaved: () => ({ opacity: 0 }),
+  appear: () => ({ opacity: 0, transform: 'scale(0)' }),
+  appeared: () => ({ opacity: 1, transform: 'scale(1)' }),
+  enter: () => ({ opacity: 0, transform: 'scale(0)' }),
+  entered: () => ({ opacity: 1, transform: 'scale(1)' }),
+  leaved: () => ({ opacity: 0, transform: 'scale(0)' }),
 };
 
 const mockCallbacks = {
-  onMounted: jest.fn(),
-  onUnmount: jest.fn(),
+  onMounted: () => {},
+  onUnmount: () => {},
 };
 
 describe('GridItem', () => {
@@ -33,14 +33,16 @@ describe('GridItem', () => {
       <GridItem
         rect={mockRect}
         component="div"
-        style={{ backgroundColor: 'red' }}
+        style={{}}
         {...mockTransitionFunctions}
         {...mockCallbacks}
       >
-        <div>Test Content</div>
+        <div data-testid="child">Test Content</div>
       </GridItem>
     );
-    expect(screen.getByText('Test Content')).toBeInTheDocument();
+    const child = screen.getByTestId('child');
+    expect(child).toBeInTheDocument();
+    expect(child).toHaveTextContent('Test Content');
   });
 
   it('applies correct styles', () => {
@@ -108,5 +110,17 @@ describe('GridItem', () => {
     expect(gridItem).toHaveStyle({
       transition: 'all 300ms ease-out',
     });
+  });
+
+  it('returns null if rect is not provided', () => {
+    const { container } = render(
+      <GridItem
+        rect={null}
+        component="div"
+      >
+        <div>Test Content</div>
+      </GridItem>
+    );
+    expect(container.firstChild).toBeNull();
   });
 });
