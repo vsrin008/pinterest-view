@@ -20,14 +20,17 @@ const mockSize = {
 jest.mock('react-sizeme', () => ({
   __esModule: true,
   default: () => (Component) =>
-    function SizeMeWrapper(props) {
-      return <Component {...props} size={mockSize} />;
+    // eslint-disable-next-line react/prop-types
+    function SizeMeWrapper({ gridRef, ...rest }) {
+      if (gridRef) {
+        mockSize.registerRef(gridRef);
+      }
+      return <Component {...rest} size={mockSize} />;
     },
 }));
 
 describe('StackGrid', () => {
   beforeEach(() => {
-    // Clear mock function calls before each test
     mockSize.registerRef.mockClear();
     mockSize.unregisterRef.mockClear();
   });
@@ -39,26 +42,18 @@ describe('StackGrid', () => {
         <div data-testid="child2">Item 2</div>
       </StackGrid>
     );
-
-    // The children are initially rendered inside a wrapper div
     expect(container.firstChild).toBeInTheDocument();
   });
 
-  it('applies correct styles', () => {
+  it('applies correct styles to container', () => {
     const { container } = render(
       <StackGrid columnWidth={100} gutterWidth={10} gutterHeight={10}>
         <div>Test Content</div>
       </StackGrid>
     );
-
-    // Find the div with position: relative style
-    const gridContainer = container.querySelector(
-      '[style*="position: relative"]'
-    );
+    const gridContainer = container.querySelector('[style*="position: relative"]');
     expect(gridContainer).toBeInTheDocument();
-    expect(gridContainer).toHaveStyle({
-      position: 'relative',
-    });
+    expect(gridContainer).toHaveStyle({ position: 'relative' });
   });
 
   it('renders GridInline correctly', () => {
@@ -79,7 +74,6 @@ describe('StackGrid', () => {
         <div>Test Content</div>
       </GridInline>
     );
-
     expect(container.firstChild).toBeInTheDocument();
     expect(mockSize.registerRef).toHaveBeenCalled();
   });
@@ -95,7 +89,21 @@ describe('StackGrid', () => {
         <div>Test Content</div>
       </StackGrid>
     );
-
     expect(container.firstChild).toBeInTheDocument();
+  });
+
+  it('calls onLayout callback when layout updates', () => {
+    const onLayout = jest.fn();
+    render(
+      <StackGrid
+        columnWidth={100}
+        gutterWidth={10}
+        gutterHeight={10}
+        onLayout={onLayout}
+      >
+        <div>Test Content</div>
+      </StackGrid>
+    );
+    expect(onLayout).toHaveBeenCalled();
   });
 });

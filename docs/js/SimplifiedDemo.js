@@ -3,16 +3,15 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import StackGrid from '../../src/components/StackGrid';
 
-// Generate random sized content for demonstration purposes
 const getRandomColor = () =>
   `#${
     Array.from({ length: 6 }, () =>
       '0123456789ABCDEF'[Math.floor(Math.random() * 16)]
-    ).join('')}`;
+    ).join('')
+  }`;
 
 const getRandomHeight = () => 150 + Math.floor(Math.random() * 250);
 
-// Demo item component with configurable height
 function DemoItem({ color, height, index }) {
   return (
     <div
@@ -56,7 +55,6 @@ DemoItem.propTypes = {
   index: PropTypes.number.isRequired,
 };
 
-// Generate mock data for our grid
 const generateItems = (count) =>
   Array.from({ length: count }, (_, i) => ({
     key: `item-${Date.now()}-${i}`,
@@ -73,7 +71,6 @@ function SimplifiedDemo() {
   const [isRTL, setIsRTL] = useState(false);
   const [isHorizontal, setIsHorizontal] = useState(false);
 
-  // Controls for demonstration
   const addItems = () => {
     const newItems = generateItems(5).map((item, idx) => {
       let { key } = item;
@@ -124,7 +121,6 @@ function SimplifiedDemo() {
     setItems(validItems);
   };
 
-  // Grid ref for manual updates
   let gridRef = null;
 
   return (
@@ -136,66 +132,80 @@ function SimplifiedDemo() {
       </p>
 
       <div style={{ marginBottom: 20 }}>
-        <div style={{ marginBottom: 10 }}>
-          <label htmlFor="columnWidth" style={{ marginRight: 10 }}>
-            Column Width:
-          </label>
-          <input
-            id="columnWidth"
-            type="range"
-            min="100"
-            max="400"
-            value={columnWidth}
-            onChange={(e) => setColumnWidth(Number(e.target.value))}
-          />
-          <span style={{ marginLeft: 10 }}>
+        <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <label htmlFor="columnWidth-input" style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ marginRight: 10 }}>Column Width:</span>
+              <input
+                id="columnWidth-input"
+                type="range"
+                min="100"
+                max="400"
+                value={columnWidth}
+                onChange={(e) => setColumnWidth(Number(e.target.value))}
+                aria-label="Column Width"
+              />
+            </label>
+          </div>
+          <div style={{ marginLeft: 10 }}>
             {columnWidth}
-            <br />
+            {' '}
             px
-          </span>
+          </div>
         </div>
 
-        <div style={{ marginBottom: 10 }}>
-          <label htmlFor="gutterSize" style={{ marginRight: 10 }}>
-            Gutter Size:
-          </label>
-          <input
-            id="gutterSize"
-            type="range"
-            min="0"
-            max="50"
-            value={gutterSize}
-            onChange={(e) => setGutterSize(Number(e.target.value))}
-          />
-          <span style={{ marginLeft: 10 }}>
+        <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <label htmlFor="gutterSize-input" style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ marginRight: 10 }}>Gutter Size:</span>
+              <input
+                id="gutterSize-input"
+                type="range"
+                min="0"
+                max="100"
+                value={gutterSize}
+                onChange={(e) => setGutterSize(Number(e.target.value))}
+                aria-label="Gutter Size"
+              />
+            </label>
+          </div>
+          <div style={{ marginLeft: 10 }}>
             {gutterSize}
-            <br />
+            {' '}
             px
-          </span>
+          </div>
         </div>
 
         <div style={{ marginBottom: 10 }}>
-          <input
-            id="rtlCheckbox"
-            type="checkbox"
-            checked={isRTL}
-            onChange={() => setIsRTL(!isRTL)}
-          />
-          <label htmlFor="rtlCheckbox" style={{ marginLeft: 5 }}>
-            RTL (Right-to-Left)
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <label htmlFor="rtl-checkbox" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              <input
+                id="rtl-checkbox"
+                type="checkbox"
+                checked={isRTL}
+                onChange={() => setIsRTL(!isRTL)}
+                style={{ marginRight: 5 }}
+                aria-label="RTL (Right-to-Left)"
+              />
+              <span>RTL (Right-to-Left)</span>
+            </label>
+          </div>
         </div>
 
         <div style={{ marginBottom: 10 }}>
-          <input
-            id="horizontalCheckbox"
-            type="checkbox"
-            checked={isHorizontal}
-            onChange={() => setIsHorizontal(!isHorizontal)}
-          />
-          <label htmlFor="horizontalCheckbox" style={{ marginLeft: 5 }}>
-            Horizontal Layout
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <label htmlFor="horizontal-checkbox" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              <input
+                id="horizontal-checkbox"
+                type="checkbox"
+                checked={isHorizontal}
+                onChange={() => setIsHorizontal(!isHorizontal)}
+                style={{ marginRight: 5 }}
+                aria-label="Horizontal Layout"
+              />
+              <span>Horizontal Layout</span>
+            </label>
+          </div>
         </div>
 
         <div>

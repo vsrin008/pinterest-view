@@ -7,10 +7,13 @@ import { transition } from '../utils/style-helper';
 const getTransitionStyles = (type, props) =>
   props[type](props.rect, props.containerSize, props.index);
 
-const getPositionStyles = (rect, zIndex, rtl) => ({
-  transform: `translateX(${rtl ? -Math.round(rect.left) : Math.round(rect.left)}px) translateY(${Math.round(rect.top)}px)`,
-  zIndex,
-});
+const getPositionStyles = (rect, zIndex, rtl) => {
+  if (!rect) return {};
+  return {
+    transform: `translateX(${rtl ? -Math.round(rect.left) : Math.round(rect.left)}px) translateY(${Math.round(rect.top)}px)`,
+    zIndex,
+  };
+};
 
 export default class GridItem extends Component {
   static propTypes = {
@@ -99,8 +102,8 @@ export default class GridItem extends Component {
     this.appearTimer = null;
 
     this.state = {
-      ...getPositionStyles(props.rect, 1, props.rtl),
-      ...getTransitionStyles('appear', props),
+      ...(props.rect ? getPositionStyles(props.rect, 1, props.rtl) : {}),
+      ...(props.rect ? getTransitionStyles('appear', props) : {}),
       prevProps: props,
     };
   }
