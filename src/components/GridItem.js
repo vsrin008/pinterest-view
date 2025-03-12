@@ -1,28 +1,19 @@
-import React, { Component } from "react";
-import PropTypes from "prop-types";
-import shallowequal from "shallowequal";
-import invariant from "invariant";
-import { transition } from "../utils/style-helper";
-import {
-  requestAnimationFrame,
-  cancelAnimationFrame,
-} from "../animations/request-animation-frame";
+import React, { Component } from 'react';
+import PropTypes from 'prop-types';
+import shallowequal from 'shallowequal';
+import { transition } from '../utils/style-helper';
+// Removed unused imports: requestAnimationFrame, cancelAnimationFrame
 
-const getTransitionStyles = (type, props) => {
-  const { rect, containerSize, index } = props;
-  return props[type](rect, containerSize, index);
-};
+const getTransitionStyles = (type, props) =>
+  props[type](props.rect, props.containerSize, props.index);
 
 const getPositionStyles = (rect, zIndex, rtl) => ({
-  transform: `translateX(${
-    rtl ? -Math.round(rect.left) : Math.round(rect.left)
-  }px) translateY(${Math.round(rect.top)}px)`,
+  transform: `translateX(${rtl ? -Math.round(rect.left) : Math.round(rect.left)}px) translateY(${Math.round(rect.top)}px)`,
   zIndex,
 });
 
 export default class GridItem extends Component {
   static propTypes = {
-    itemKey: PropTypes.string,
     index: PropTypes.number,
     component: PropTypes.string,
     rect: PropTypes.shape({
@@ -39,28 +30,28 @@ export default class GridItem extends Component {
     duration: PropTypes.number,
     easing: PropTypes.string,
     appearDelay: PropTypes.number,
-    appear: PropTypes.func,
-    appeared: PropTypes.func,
-    enter: PropTypes.func,
-    entered: PropTypes.func,
-    leaved: PropTypes.func,
+    /* eslint-disable react/no-unused-prop-types */
+    appear: PropTypes.func, // used dynamically in getTransitionStyles
+    appeared: PropTypes.func, // used dynamically in getTransitionStyles
+    enter: PropTypes.func, // used dynamically in getTransitionStyles
+    entered: PropTypes.func, // used dynamically in getTransitionStyles
+    leaved: PropTypes.func, // used dynamically in getTransitionStyles
+    /* eslint-enable react/no-unused-prop-types */
     units: PropTypes.shape({
       length: PropTypes.string,
       angle: PropTypes.string,
     }),
-    vendorPrefix: PropTypes.bool,
-    userAgent: PropTypes.string,
     onMounted: PropTypes.func,
     onUnmount: PropTypes.func,
     rtl: PropTypes.bool,
-    style: PropTypes.object,
+    style: PropTypes.shape({}),
     children: PropTypes.node,
   };
 
   static defaultProps = {
-    component: "div",
+    component: 'div',
     duration: 0,
-    easing: "ease-out",
+    easing: 'ease-out',
     appearDelay: 0,
     appear: () => ({}),
     appeared: () => ({}),
@@ -68,11 +59,9 @@ export default class GridItem extends Component {
     entered: () => ({}),
     leaved: () => ({}),
     units: {
-      length: "px",
-      angle: "deg",
+      length: 'px',
+      angle: 'deg',
     },
-    vendorPrefix: true,
-    userAgent: null,
     onMounted: () => {},
     onUnmount: () => {},
     rtl: false,
@@ -82,17 +71,15 @@ export default class GridItem extends Component {
   static getDerivedStateFromProps(nextProps, prevState) {
     if (!shallowequal(nextProps, prevState.prevProps)) {
       const { rect, duration, easing, rtl } = nextProps;
-      const isSignificantChange =
-        Math.abs((prevState.prevProps?.rect?.top || 0) - (rect?.top || 0)) >
-          1 ||
-        Math.abs((prevState.prevProps?.rect?.left || 0) - (rect?.left || 0)) >
-          1;
+      const isSignificantChange
+        = Math.abs((prevState.prevProps?.rect?.top || 0) - (rect?.top || 0)) > 1
+        || Math.abs((prevState.prevProps?.rect?.left || 0) - (rect?.left || 0)) > 1;
 
       if (isSignificantChange) {
         return {
           ...prevState,
           ...getPositionStyles(rect, 2, rtl),
-          transition: transition(["transform"], duration, easing),
+          transition: transition(['transform'], duration, easing),
           prevProps: nextProps,
         };
       }
@@ -110,48 +97,47 @@ export default class GridItem extends Component {
     super(props);
     this.mounted = false;
     this.appearTimer = null;
-    this.node = null;
 
     this.state = {
       ...getPositionStyles(props.rect, 1, props.rtl),
-      ...getTransitionStyles("appear", props),
+      ...getTransitionStyles('appear', props),
       prevProps: props,
     };
   }
 
   componentDidMount() {
     this.mounted = true;
-    this.props.onMounted(this);
+    const { onMounted } = this.props;
+    onMounted(this);
   }
 
   componentWillUnmount() {
     this.mounted = false;
     clearTimeout(this.appearTimer);
     this.appearTimer = null;
-    this.props.onUnmount(this);
+    const { onUnmount } = this.props;
+    onUnmount(this);
   }
 
+  /* eslint-disable react/no-unused-class-component-methods */
   componentWillAppear(callback) {
+    const { rect, rtl, duration, easing, appearDelay, index } = this.props;
     // Ensure initial position is set before animation starts
     this.setStateIfNeeded({
       ...this.state,
-      ...getPositionStyles(this.props.rect, 1, this.props.rtl),
-      transition: "none",
+      ...getPositionStyles(rect, 1, rtl),
+      transition: 'none',
     });
 
     // Start appearance animation after a brief delay
     this.appearTimer = setTimeout(() => {
       this.setStateIfNeeded({
         ...this.state,
-        ...getTransitionStyles("appear", this.props),
-        transition: transition(
-          ["opacity", "transform"],
-          this.props.duration,
-          this.props.easing
-        ),
+        ...getTransitionStyles('appear', this.props),
+        transition: transition(['opacity', 'transform'], duration, easing),
       });
       callback();
-    }, this.props.appearDelay * this.props.index);
+    }, appearDelay * index);
   }
 
   componentDidAppear() {
@@ -168,9 +154,11 @@ export default class GridItem extends Component {
   }
 
   componentWillLeave(callback) {
+    const { duration } = this.props;
     this.setLeaveStyles();
-    setTimeout(callback, this.props.duration);
+    setTimeout(callback, duration);
   }
+  /* eslint-enable react/no-unused-class-component-methods */
 
   setStateIfNeeded(state) {
     if (this.mounted) {
@@ -179,34 +167,38 @@ export default class GridItem extends Component {
   }
 
   setAppearedStyles() {
+    const { rect, rtl } = this.props;
     this.setStateIfNeeded({
       ...this.state,
-      ...getTransitionStyles("appeared", this.props),
-      ...getPositionStyles(this.props.rect, 1, this.props.rtl),
+      ...getTransitionStyles('appeared', this.props),
+      ...getPositionStyles(rect, 1, rtl),
     });
   }
 
   setEnterStyles() {
+    const { rect, rtl } = this.props;
     this.setStateIfNeeded({
       ...this.state,
-      ...getPositionStyles(this.props.rect, 2, this.props.rtl),
-      ...getTransitionStyles("enter", this.props),
+      ...getPositionStyles(rect, 2, rtl),
+      ...getTransitionStyles('enter', this.props),
     });
   }
 
   setEnteredStyles() {
+    const { rect, rtl } = this.props;
     this.setStateIfNeeded({
       ...this.state,
-      ...getTransitionStyles("entered", this.props),
-      ...getPositionStyles(this.props.rect, 1, this.props.rtl),
+      ...getTransitionStyles('entered', this.props),
+      ...getPositionStyles(rect, 1, rtl),
     });
   }
 
   setLeaveStyles() {
+    const { rect, rtl } = this.props;
     this.setStateIfNeeded({
       ...this.state,
-      ...getPositionStyles(this.props.rect, 2, this.props.rtl),
-      ...getTransitionStyles("leaved", this.props),
+      ...getPositionStyles(rect, 2, rtl),
+      ...getTransitionStyles('leaved', this.props),
     });
   }
 
@@ -220,17 +212,15 @@ export default class GridItem extends Component {
       duration,
       easing,
     } = this.props;
-
     if (!rect) return null;
 
     const elementStyle = {
-      position: "absolute",
+      position: 'absolute',
       top: 0,
       ...(rtl ? { right: 0 } : { left: 0 }),
       width: `${rect.width}px`,
       height: `${rect.height}px`,
-      transition:
-        duration && easing ? `all ${duration}ms ${easing}` : undefined,
+      transition: duration && easing ? `all ${duration}ms ${easing}` : undefined,
       ...this.state,
       ...style,
     };

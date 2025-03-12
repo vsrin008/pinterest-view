@@ -29,7 +29,7 @@ const mockCallbacks = {
 
 describe("GridItem", () => {
   it("renders children correctly", () => {
-    const { container } = render(
+    render(
       <GridItem
         rect={mockRect}
         component="div"
@@ -73,7 +73,7 @@ describe("GridItem", () => {
       <GridItem
         rect={mockRect}
         component="div"
-        rtl={true}
+        rtl
         style={{}}
         {...mockTransitionFunctions}
         {...mockCallbacks}
