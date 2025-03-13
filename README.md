@@ -1,5 +1,8 @@
 # pintrest-view
 
+[![npm version](https://badge.fury.io/js/%40zapperwing%2Fpintrest-view.svg)](https://www.npmjs.com/package/@zapperwing/pintrest-view)
+[![npm downloads](https://img.shields.io/npm/dm/@zapperwing/pintrest-view.svg)](https://www.npmjs.com/package/@zapperwing/pintrest-view)
+
 A Pinterest-style grid layout component for React.js with responsive design and dynamic content support. Create beautiful, responsive grid layouts that automatically adjust to your content.
 
 ## Features
@@ -18,10 +21,10 @@ A Pinterest-style grid layout component for React.js with responsive design and 
 
 ```bash
 # Using npm
-npm install @yourusername/pintrest-view
+npm install @zapperwing/pintrest-view
 
 # Using yarn
-yarn add @yourusername/pintrest-view
+yarn add @zapperwing/pintrest-view
 ```
 
 Make sure you have `react` and `react-dom` installed in your project (version 17.0.0 or higher).
@@ -32,7 +35,7 @@ Here's a simple example to get you started:
 
 ```jsx
 import React from "react";
-import StackGrid from "@yourusername/pintrest-view";
+import StackGrid from "@zapperwing/pintrest-view";
 
 const SimpleGrid = () => {
   return (
@@ -55,7 +58,7 @@ The grid can handle any React component as a child. The only requirement is that
 
 ```jsx
 import React from "react";
-import StackGrid from "@yourusername/pintrest-view";
+import StackGrid from "@zapperwing/pintrest-view";
 import YourCustomCard from "./YourCustomCard";
 
 const GridWithCustomComponents = () => {
