@@ -3,6 +3,11 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import StackGrid from '../../src/components/StackGrid';
 
+const COLUMN_WIDTH_MIN = 100;
+const COLUMN_WIDTH_MAX = 400;
+const GUTTER_SIZE_MIN = 0;
+const GUTTER_SIZE_MAX = 100;
+
 const getRandomColor = () =>
   `#${
     Array.from({ length: 6 }, () =>
@@ -71,6 +76,16 @@ function SimplifiedDemo() {
   const [isRTL, setIsRTL] = useState(false);
   const [isHorizontal, setIsHorizontal] = useState(false);
 
+  const handleColumnWidthChange = (value) => {
+    const newValue = Math.min(COLUMN_WIDTH_MAX, Math.max(COLUMN_WIDTH_MIN, Number(value)));
+    setColumnWidth(newValue);
+  };
+
+  const handleGutterSizeChange = (value) => {
+    const newValue = Math.min(GUTTER_SIZE_MAX, Math.max(GUTTER_SIZE_MIN, Number(value)));
+    setGutterSize(newValue);
+  };
+
   const addItems = () => {
     const newItems = generateItems(5).map((item, idx) => {
       let { key } = item;
@@ -127,85 +142,106 @@ function SimplifiedDemo() {
     <div>
       <h1>React Stack Grid Demo</h1>
       <p>
-        This is a simplified demo showing the core grid functionality without
-        animations or transitions.
+        This is a simplified demo showing the core grid functionality.
       </p>
 
       <div style={{ marginBottom: 20 }}>
-        <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <label htmlFor="columnWidth-input" style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={{ marginRight: 10 }}>Column Width:</span>
+        <div className="form-group">
+          <label htmlFor="columnWidth">Column width:</label>
+          <div className="control-group">
+            <div className="input-with-slider">
               <input
-                id="columnWidth-input"
-                type="range"
-                min="100"
-                max="400"
+                id="columnWidth"
+                type="number"
+                className="form-control"
                 value={columnWidth}
-                onChange={(e) => setColumnWidth(Number(e.target.value))}
-                aria-label="Column Width"
+                min={COLUMN_WIDTH_MIN}
+                max={COLUMN_WIDTH_MAX}
+                onChange={(e) => handleColumnWidthChange(e.target.value)}
               />
-            </label>
-          </div>
-          <div style={{ marginLeft: 10 }}>
-            {columnWidth}
-            {' '}
-            px
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <label htmlFor="gutterSize-input" style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={{ marginRight: 10 }}>Gutter Size:</span>
               <input
-                id="gutterSize-input"
                 type="range"
-                min="0"
-                max="100"
-                value={gutterSize}
-                onChange={(e) => setGutterSize(Number(e.target.value))}
-                aria-label="Gutter Size"
+                className="form-range"
+                min={COLUMN_WIDTH_MIN}
+                max={COLUMN_WIDTH_MAX}
+                value={columnWidth}
+                onChange={(e) => handleColumnWidthChange(e.target.value)}
+                aria-label="Column width slider"
               />
-            </label>
+            </div>
           </div>
-          <div style={{ marginLeft: 10 }}>
-            {gutterSize}
+          <small className="form-text">
+            Min:
+            {' '}
+            {COLUMN_WIDTH_MIN}
+            {' '}
+            px, Max:
+            {' '}
+            {COLUMN_WIDTH_MAX}
             {' '}
             px
-          </div>
+          </small>
         </div>
 
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <label htmlFor="rtl-checkbox" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+        <div className="form-group">
+          <label htmlFor="gutterSize">Gutter size:</label>
+          <div className="control-group">
+            <div className="input-with-slider">
               <input
-                id="rtl-checkbox"
-                type="checkbox"
-                checked={isRTL}
-                onChange={() => setIsRTL(!isRTL)}
-                style={{ marginRight: 5 }}
-                aria-label="RTL (Right-to-Left)"
+                id="gutterSize"
+                type="number"
+                className="form-control"
+                value={gutterSize}
+                min={GUTTER_SIZE_MIN}
+                max={GUTTER_SIZE_MAX}
+                onChange={(e) => handleGutterSizeChange(e.target.value)}
               />
-              <span>RTL (Right-to-Left)</span>
-            </label>
+              <input
+                type="range"
+                className="form-range"
+                min={GUTTER_SIZE_MIN}
+                max={GUTTER_SIZE_MAX}
+                value={gutterSize}
+                onChange={(e) => handleGutterSizeChange(e.target.value)}
+                aria-label="Gutter size slider"
+              />
+            </div>
           </div>
+          <small className="form-text">
+            Min:
+            {' '}
+            {GUTTER_SIZE_MIN}
+            {' '}
+            px, Max:
+            {' '}
+            {GUTTER_SIZE_MAX}
+            {' '}
+            px
+          </small>
         </div>
 
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <label htmlFor="horizontal-checkbox" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-              <input
-                id="horizontal-checkbox"
-                type="checkbox"
-                checked={isHorizontal}
-                onChange={() => setIsHorizontal(!isHorizontal)}
-                style={{ marginRight: 5 }}
-                aria-label="Horizontal Layout"
-              />
-              <span>Horizontal Layout</span>
-            </label>
-          </div>
+        <div className="form-group">
+          <label htmlFor="rtl" className="checkbox-label">
+            <input
+              id="rtl"
+              type="checkbox"
+              checked={isRTL}
+              onChange={() => setIsRTL(!isRTL)}
+            />
+            <span>RTL</span>
+          </label>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="horizontal" className="checkbox-label">
+            <input
+              id="horizontal"
+              type="checkbox"
+              checked={isHorizontal}
+              onChange={() => setIsHorizontal(!isHorizontal)}
+            />
+            <span>Horizontal</span>
+          </label>
         </div>
 
         <div>

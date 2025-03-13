@@ -17,12 +17,13 @@
       "presets": ["@babel/preset-react", "@babel/preset-flow"]
     }
   },
-  "plugins": ["jest", "flowtype", "react"],
+  "plugins": ["jest", "flowtype", "react", "jsx-a11y"],
   "extends": [
     "airbnb",
     "plugin:jest/recommended",
     "plugin:flowtype/recommended",
-    "plugin:react/recommended"
+    "plugin:react/recommended",
+    "plugin:jsx-a11y/recommended"
   ],
   "settings": {
     "flowtype": {
@@ -55,8 +56,17 @@
     "react/state-in-constructor": "off",
     "react/jsx-props-no-spreading": "off",
     "jsx-a11y/href-no-hash": "off",
-    "jsx-a11y/label-has-for": "off",
-    "jsx-a11y/img-has-alt": "off",
+    "jsx-a11y/label-has-associated-control": ["error", {
+      "labelComponents": [],
+      "labelAttributes": [],
+      "controlComponents": [],
+      "assert": "either",
+      "depth": 25
+    }],
+    "jsx-a11y/img-redundant-alt": ["error", {
+      "components": ["Image"],
+      "words": ["image", "photo", "picture"]
+    }],
     "import/no-extraneous-dependencies": [
       "error",
       {
