@@ -207,10 +207,19 @@ class GridInline extends Component {
     const childArray = React.Children.toArray(children).filter(isValidElement);
     const [maxColumn, colWidth] = getColumnLengthAndWidth(containerWidth, columnWidth, gutterWidth);
     const columnHeights = createArray(0, maxColumn);
+    const columnItems = Array.from({ length: maxColumn }, () => []);
     let rects;
+
     if (!horizontal) {
-      rects = childArray.map((child) => {
-        const column = columnHeights.indexOf(Math.min(...columnHeights));
+      // First pass: Assign items to columns in order
+      childArray.forEach((child, index) => {
+        const column = Math.floor(index % maxColumn);
+        columnItems[column].push(child);
+      });
+
+      // Second pass: Calculate positions while maintaining column assignments
+      rects = childArray.map((child, index) => {
+        const column = Math.floor(index % maxColumn);
         const height = this.getItemHeight(child.key) || 0;
         const left = Math.round(column * (colWidth + gutterWidth));
         const top = Math.round(columnHeights[column]);

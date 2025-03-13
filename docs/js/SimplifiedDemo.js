@@ -15,41 +15,88 @@ const getRandomColor = () =>
     ).join('')
   }`;
 
-const getRandomHeight = () => 150 + Math.floor(Math.random() * 250);
+const getRandomHeight = () => 200 + Math.floor(Math.random() * 300);
 
 function DemoItem({ color, height, index }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const baseHeight = height;
+  const expandedHeight = baseHeight + 100;
+
   return (
     <div
       style={{
         backgroundColor: color,
-        height: `${height}px`,
+        height: `${isExpanded ? expandedHeight : baseHeight}px`,
         width: '100%',
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'space-between',
         color: 'white',
         fontWeight: 'bold',
         fontSize: '18px',
         borderRadius: '8px',
         overflow: 'hidden',
         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-        cursor: 'pointer',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        cursor: 'default',
         boxSizing: 'border-box',
         padding: '15px',
+        willChange: 'transform, height',
+        position: 'relative',
+        zIndex: isExpanded ? 2 : 1,
       }}
     >
-      <div style={{ textAlign: 'center' }}>
-        Item
-        <br />
-        {index}
-        <br />
-        <small style={{ opacity: 0.8 }}>
-          {height}
+      <div style={{ textAlign: 'center', flex: 1, display: 'flex', alignItems: 'center' }}>
+        <div>
+          Item
           <br />
-          px
-        </small>
+          {index}
+          <br />
+          <small style={{ opacity: 0.8 }}>
+            {height}
+            <br />
+            px
+          </small>
+        </div>
       </div>
+
+      {isExpanded && (
+        <div
+          style={{
+            width: '100%',
+            padding: '10px',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '4px',
+            marginTop: '10px',
+            textAlign: 'center',
+          }}
+        >
+          Expanded Content
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        onMouseOver={() => setIsHovered(true)}
+        onMouseOut={() => setIsHovered(false)}
+        onFocus={() => setIsHovered(true)}
+        onBlur={() => setIsHovered(false)}
+        style={{
+          backgroundColor: isHovered ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.2)',
+          border: 'none',
+          color: 'white',
+          padding: '8px 16px',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          marginTop: '10px',
+          transition: 'background-color 0.2s ease',
+        }}
+      >
+        {isExpanded ? 'Collapse' : 'Expand'}
+      </button>
     </div>
   );
 }
@@ -264,6 +311,10 @@ function SimplifiedDemo() {
           monitorImagesLoaded
           rtl={isRTL}
           horizontal={isHorizontal}
+          style={{
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            willChange: 'transform',
+          }}
         >
           {items.map((item) => (
             <DemoItem
