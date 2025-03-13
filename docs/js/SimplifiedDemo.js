@@ -60,19 +60,20 @@ DemoItem.propTypes = {
   index: PropTypes.number.isRequired,
 };
 
-const generateItems = (count) =>
+const generateItems = (count, startIndex = 0) =>
   Array.from({ length: count }, (_, i) => ({
     key: `item-${Date.now()}-${i}`,
+    type: 'demo',
     color: getRandomColor(),
     height: getRandomHeight(),
-    index: i + 1,
+    index: startIndex + i + 1,
   }));
 
 function SimplifiedDemo() {
-  const [items, setItems] = useState(generateItems(20));
+  const [items, setItems] = useState(generateItems(10));
   const [usedKeys, setUsedKeys] = useState(new Set(items.map((item) => item.key)));
-  const [columnWidth, setColumnWidth] = useState(200);
-  const [gutterSize, setGutterSize] = useState(10);
+  const [columnWidth, setColumnWidth] = useState(300);
+  const [gutterSize, setGutterSize] = useState(20);
   const [isRTL, setIsRTL] = useState(false);
   const [isHorizontal, setIsHorizontal] = useState(false);
 
@@ -87,19 +88,16 @@ function SimplifiedDemo() {
   };
 
   const addItems = () => {
-    const newItems = generateItems(5).map((item, idx) => {
+    const demoItemCount = items.length;
+    const newItems = generateItems(5, demoItemCount).map((item) => {
       let { key } = item;
       while (usedKeys.has(key)) {
-        key = `item-${Date.now()}-${items.length + idx}-${Math.random()
+        key = `item-${Date.now()}-${items.length}-${Math.random()
           .toString(36)
           .substr(2, 9)}`;
       }
       usedKeys.add(key);
-      return {
-        ...item,
-        key,
-        index: items.length + idx + 1,
-      };
+      return { ...item, key };
     });
     setUsedKeys(new Set([...usedKeys, ...newItems.map((item) => item.key)]));
     setItems([...items, ...newItems]);
@@ -123,17 +121,7 @@ function SimplifiedDemo() {
       itemsToShuffle[i].index = i + 1;
       itemsToShuffle[j].index = j + 1;
     }
-    const keySet = new Set();
-    const validItems = itemsToShuffle.filter((item) => {
-      if (keySet.has(item.key)) {
-        // eslint-disable-next-line no-console
-        console.error('Duplicate key detected:', item.key);
-        return false;
-      }
-      keySet.add(item.key);
-      return true;
-    });
-    setItems(validItems);
+    setItems(itemsToShuffle);
   };
 
   let gridRef = null;
@@ -142,7 +130,8 @@ function SimplifiedDemo() {
     <div>
       <h1>React Stack Grid Demo</h1>
       <p>
-        This is a simplified demo showing the core grid functionality.
+        This demo shows how the grid system can handle React components with dynamic heights
+        and maintain smooth transitions during layout changes.
       </p>
 
       <div style={{ marginBottom: 20 }}>
