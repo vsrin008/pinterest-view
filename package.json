@@ -1,6 +1,6 @@
 {
   "name": "@zapperwing/pintrest-view",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A Pinterest-style grid layout component for React.js with responsive design and dynamic content support",
   "main": "lib/index.js",
   "scripts": {
@@ -18,7 +18,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/pintrest-view.git"
+    "url": "git+https://github.com/vsrin008/pintrest-view.git"
   },
   "keywords": [
     "react",
