@@ -1,6 +1,6 @@
 {
-  "name": "@zapperwing/pintrest-view",
-  "version": "1.0.1",
+  "name": "@zapperwing/pinterest-view",
+  "version": "1.0.2",
   "description": "A Pinterest-style grid layout component for React.js with responsive design and dynamic content support",
   "main": "lib/index.js",
   "scripts": {
