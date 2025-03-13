@@ -1,1 +1,38 @@
- 
+# Development files
+.git
+.gitignore
+.eslintrc
+.eslintignore
+.babelrc
+.flowconfig
+webpack.config.*
+jest.config.*
+
+# Documentation and examples
+docs/
+examples/
+demo/
+
+# Tests
+__tests__/
+*.test.js
+*.spec.js
+coverage/
+
+# Build tools
+node_modules/
+.travis.yml
+.circleci/
+.github/
+
+# Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log* 

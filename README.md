@@ -1,96 +1,120 @@
-# react-stack-grid-upgraded
+# pintrest-view
 
-A modernized and simplified version of react-stack-grid, providing a Pinterest-like grid layout component for React.js with improved performance and reliability.
+A Pinterest-style grid layout component for React.js with responsive design and dynamic content support. Create beautiful, responsive grid layouts that automatically adjust to your content.
 
 ## Features
 
-- Simple and efficient grid layout with minimal DOM operations
-- Responsive design support with percentage or pixel-based column widths
-- RTL (Right-to-Left) support for international layouts
-- Horizontal/Vertical layout options
-- Automatic image handling with layout reflow
-- Zero-configuration option with sensible defaults
-- Flow type definitions for better development experience
-- Improved layout validation and duplicate key detection
-- Simplified and optimized rendering without complex animations
-- Server-side rendering support
+- 🎯 Simple API with minimal configuration required
+- 📱 Responsive design with flexible column widths (pixels or percentages)
+- 🌐 RTL (Right-to-Left) support for international layouts
+- ↔️ Both vertical and horizontal layout options
+- 🖼️ Automatic image handling with layout adjustments
+- 🎨 Works with any React component
+- 🚀 Optimized performance with minimal DOM operations
+- 🖥️ Server-side rendering support
+- 🔄 Smooth transitions during layout changes
 
 ## Installation
 
 ```bash
-npm install react-stack-grid-upgraded
-# or
-yarn add react-stack-grid-upgraded
+# Using npm
+npm install @yourusername/pintrest-view
+
+# Using yarn
+yarn add @yourusername/pintrest-view
 ```
 
-## Basic Usage
+Make sure you have `react` and `react-dom` installed in your project (version 17.0.0 or higher).
 
-```javascript
+## Quick Start
+
+Here's a simple example to get you started:
+
+```jsx
 import React from "react";
-import StackGrid from "react-stack-grid-upgraded";
+import StackGrid from "@yourusername/pintrest-view";
 
-const MyComponent = () => {
+const SimpleGrid = () => {
   return (
     <StackGrid 
-      columnWidth={150}
-      gutterWidth={10} 
-      gutterHeight={10}
+      columnWidth={300}
+      gutterWidth={15} 
+      gutterHeight={15}
     >
-      <div key="key1">Item 1</div>
-      <div key="key2">Item 2</div>
-      <div key="key3">Item 3</div>
+      <div key="item1">First Item</div>
+      <div key="item2">Second Item</div>
+      <div key="item3">Third Item</div>
     </StackGrid>
   );
 };
 ```
 
-## How It Works
+## Using Custom Components
 
-### Grid Layout Algorithm
+The grid can handle any React component as a child. The only requirement is that each child must have a unique `key` prop:
 
-The grid uses a sophisticated algorithm to position items:
+```jsx
+import React from "react";
+import StackGrid from "@yourusername/pintrest-view";
+import YourCustomCard from "./YourCustomCard";
 
-1. **Column Width Calculation**:
-   - For pixel values: Uses the exact width specified
-   - For percentage values: Calculates based on container width
-   - Formula: \`columnCount = Math.floor((containerWidth - (containerWidth / columnWidth - 1) * gutterWidth) / columnWidth)\`
+const GridWithCustomComponents = () => {
+  const items = [
+    { id: 1, title: "First Card", content: "Some content..." },
+    { id: 2, title: "Second Card", content: "More content..." },
+    // ... more items
+  ];
 
-2. **Item Placement**:
-   - Vertical Mode (default):
-     1. Finds the shortest column
-     2. Places item at the bottom of that column
-     3. Updates column height
-   - Horizontal Mode:
-     1. Fills columns left to right
-     2. Moves to next column when height threshold reached
-     3. Balances items across available width
+  return (
+    <StackGrid 
+      columnWidth={300}
+      gutterWidth={15} 
+      gutterHeight={15}
+      monitorImagesLoaded={true} // Important if your components contain images
+    >
+      {items.map(item => (
+        <YourCustomCard
+          key={item.id.toString()} // Unique key is required
+          title={item.title}
+          content={item.content}
+        />
+      ))}
+    </StackGrid>
+  );
+};
+```
 
-3. **Position Calculation**:
-   - Item positions are calculated using CSS transforms
-   - Formula: \`transform: translateX(left)px translateY(top)px\`
-   - RTL mode inverts the X-axis calculations
+### Tips for Custom Components
 
-4. **Responsive Behavior**:
-   - Monitors container width changes
-   - Recalculates layout on resize
-   - Supports dynamic column width adjustments
+1. **Height Calculation**: The grid automatically detects the rendered height of your components. No special configuration needed!
 
-### Performance Optimizations
+2. **Images**: If your components contain images, set `monitorImagesLoaded={true}` to ensure proper layout after images load.
 
-1. **DOM Operations**:
-   - Uses CSS transforms instead of position properties
-   - Batches layout updates using requestAnimationFrame
-   - Minimizes reflows by updating all items simultaneously
+3. **Dynamic Content**: If your component's height might change (e.g., expandable cards), call `updateLayout()` after the change:
 
-2. **Image Handling**:
-   - Optional image load monitoring
-   - Automatic layout updates when images load
-   - Cleanup of image listeners on unmount
+```jsx
+const ExpandableCard = ({ content, gridRef }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
 
-3. **State Management**:
-   - Uses shallow comparison for prop changes
-   - Maintains minimal state
-   - Efficient update checking
+  const handleToggle = () => {
+    setIsExpanded(!isExpanded);
+    // Update grid layout after expansion/collapse
+    if (gridRef.current) {
+      gridRef.current.updateLayout();
+    }
+  };
+
+  return (
+    <div>
+      <h3>Card Title</h3>
+      {isExpanded ? <p>{content}</p> : null}
+      <button onClick={handleToggle}>
+        {isExpanded ? 'Show Less' : 'Show More'}
+      </button>
+    </div>
+  );
+};
+```
 
 ## Props
 
@@ -106,165 +130,4 @@ The grid uses a sophisticated algorithm to position items:
 | `gutterHeight`       | `number`           | `5`         | Vertical spacing between items (px)                                                            |
 | `monitorImagesLoaded`| `boolean`          | `false`     | Whether to monitor and reflow when images load                                                 |
 | `enableSSR`          | `boolean`          | `false`     | Enable server-side rendering support                                                           |
-| `onLayout`           | `function`         | `null`      | Callback when layout updates: `() => void`                                                     |
-| `horizontal`         | `boolean`          | `false`     | Enable horizontal layout mode                                                                  |
-| `rtl`                | `boolean`          | `false`     | Enable right-to-left layout                                                                    |
-
-## Instance Methods
-
-### updateLayout()
-
-Manually trigger a layout update. Useful when item contents change:
-
-```javascript
-class MyComponent extends React.Component {
-  handleContentChange = () => {
-    this.grid.updateLayout();
-  };
-
-  render() {
-    return (
-      <StackGrid gridRef={grid => this.grid = grid}>
-        {/* items */}
-      </StackGrid>
-    );
-  }
-}
-```
-
-## Advanced Usage
-
-### Responsive Layout
-
-```javascript
-import React from "react";
-import StackGrid from "react-stack-grid-upgraded";
-
-const ResponsiveGrid = () => {
-  const getColumnWidth = (containerWidth) => {
-    if (containerWidth < 768) return "100%";
-    if (containerWidth < 1024) return "50%";
-    return "33.33%";
-  };
-
-  return (
-    <StackGrid columnWidth={getColumnWidth}>
-      {/* items */}
-    </StackGrid>
-  );
-};
-```
-
-### Image Handling
-
-```javascript
-<StackGrid monitorImagesLoaded={true}>
-  <img src="..." alt="..." key="img1" />
-  <img src="..." alt="..." key="img2" />
-</StackGrid>
-```
-
-### RTL Support
-
-```javascript
-<StackGrid rtl={true} columnWidth={200}>
-  {/* items */}
-</StackGrid>
-```
-
-### Horizontal Layout
-
-```javascript
-<StackGrid horizontal={true} columnWidth={200}>
-  {/* items */}
-</StackGrid>
-```
-
-## Running the Demo
-
-The demo showcases all features and provides a playground to experiment with different configurations.
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/react-stack-grid-upgraded.git
-   cd react-stack-grid-upgraded
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   # or
-   yarn
-   ```
-
-3. Start the demo server:
-   ```bash
-   npm run demo
-   # or
-   yarn demo
-   ```
-
-4. Open http://localhost:3000 in your browser
-
-## Development
-
-### Setup
-
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Run tests: `npm test`
-4. Start demo: `npm run demo`
-
-### Testing
-
-The project uses Jest and React Testing Library for testing:
-
-```bash
-# Run all tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run linting
-npm run test:lint
-```
-
-### Building
-
-```bash
-# Build the library
-npm run build
-
-# Clean build directory
-npm run clean
-```
-
-## Type Checking
-
-The project includes Flow type definitions. To use Flow:
-
-1. Install Flow in your project
-2. Add Flow configuration
-3. Run Flow type checking
-
-## License
-
-MIT
-
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add/update tests
-5. Update documentation
-6. Submit a pull request
-
-When contributing, please:
-- Follow the existing code style
-- Add tests for any new functionality
-- Update documentation as needed
-- Ensure all tests pass
+| `onLayout`           | `function`         | `null`

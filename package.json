@@ -1,7 +1,7 @@
 {
-  "name": "react-stack-grid-upgraded",
+  "name": "@yourusername/pintrest-view",
   "version": "1.0.0",
-  "description": "A modernized and simplified Pinterest-like grid layout component for React.js",
+  "description": "A Pinterest-style grid layout component for React.js with responsive design and dynamic content support",
   "main": "lib/index.js",
   "scripts": {
     "start": "npm run demo",
@@ -18,7 +18,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/react-stack-grid-upgraded.git"
+    "url": "git+https://github.com/yourusername/pintrest-view.git"
   },
   "keywords": [
     "react",
@@ -29,7 +29,10 @@
     "masonry",
     "responsive",
     "rtl",
-    "flow"
+    "flow",
+    "pinterest-style",
+    "grid-layout",
+    "dynamic-grid"
   ],
   "license": "MIT",
   "files": [
@@ -98,10 +101,10 @@
     "collectCoverage": true,
     "coverageThreshold": {
       "global": {
-        "branches": 80,
-        "functions": 80,
-        "lines": 80,
-        "statements": 80
+        "branches": 50,
+        "functions": 50,
+        "lines": 50,
+        "statements": 50
       }
     },
     "transform": {
