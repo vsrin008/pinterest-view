@@ -207,7 +207,15 @@ function SimplifiedDemo() {
             </div>
           </div>
           <small className="form-text">
-            Min: {COLUMN_WIDTH_MIN} px, Max: {COLUMN_WIDTH_MAX} px
+            Min:
+            {' '}
+            {COLUMN_WIDTH_MIN}
+            {' '}
+            px, Max:
+            {' '}
+            {COLUMN_WIDTH_MAX}
+            {' '}
+            px
           </small>
         </div>
 
@@ -236,7 +244,15 @@ function SimplifiedDemo() {
             </div>
           </div>
           <small className="form-text">
-            Min: {GUTTER_SIZE_MIN} px, Max: {GUTTER_SIZE_MAX} px
+            Min:
+            {' '}
+            {GUTTER_SIZE_MIN}
+            {' '}
+            px, Max:
+            {' '}
+            {GUTTER_SIZE_MAX}
+            {' '}
+            px
           </small>
         </div>
 
@@ -286,8 +302,8 @@ function SimplifiedDemo() {
 
       <div style={{ padding: '20px 0' }}>
         <StackGrid
-          // Enable virtualization here
-          virtualized={true}
+          // Enable virtualization by setting it to true
+          virtualized={false}
           gridRef={(ref) => {
             gridRef = ref;
           }}

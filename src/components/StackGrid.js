@@ -335,7 +335,15 @@ class GridInline extends Component {
   /* eslint-enable react/no-unused-class-component-methods */
 
   render() {
-    const { className, style, component: ElementType, itemComponent, children, rtl, virtualized } = this.props;
+    const {
+      className,
+      style,
+      component: ElementType,
+      itemComponent,
+      children,
+      rtl,
+      virtualized,
+    } = this.props;
     const { rects, height, containerRect } = this.state;
     const containerStyle = { position: 'relative', height, ...style };
     const validChildren = React.Children.toArray(children).filter(isValidElement);
@@ -343,7 +351,7 @@ class GridInline extends Component {
     const gridItems = validChildren.map((child, i) => {
       const rect = rects[i];
       if (!rect) return null;
-      // If virtualization is enabled, only render items whose position is in (or near) the viewport.
+      // Skip rendering items that are far from the viewport when virtualization is enabled
       if (virtualized && containerRect) {
         // Items' absolute positions are relative to the grid container.
         // The grid container's top relative to the viewport is containerRect.top.
@@ -368,7 +376,12 @@ class GridInline extends Component {
       );
     });
     return (
-      <ElementType data-testid="stack-grid-container" className={className} style={containerStyle} ref={this.containerRef}>
+      <ElementType
+        data-testid="stack-grid-container"
+        className={className}
+        style={containerStyle}
+        ref={this.containerRef}
+      >
         {gridItems}
       </ElementType>
     );
