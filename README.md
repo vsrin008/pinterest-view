@@ -16,6 +16,7 @@ A Pinterest-style grid layout component for React.js with responsive design and 
 - 🚀 Optimized performance with minimal DOM operations
 - 🖥️ Server-side rendering support
 - 🔄 Smooth transitions during layout changes
+- 🏎️ **Virtualized Rendering** – render only visible items for large grids to improve performance
 
 ## Installation
 
@@ -43,6 +44,7 @@ const SimpleGrid = () => {
       columnWidth={300}
       gutterWidth={15} 
       gutterHeight={15}
+      virtualized={true}  // Enable virtualization for performance with many items
     >
       <div key="item1">First Item</div>
       <div key="item2">Second Item</div>
@@ -50,6 +52,8 @@ const SimpleGrid = () => {
     </StackGrid>
   );
 };
+
+export default SimpleGrid;
 ```
 
 ## Using Custom Components
@@ -74,6 +78,7 @@ const GridWithCustomComponents = () => {
       gutterWidth={15} 
       gutterHeight={15}
       monitorImagesLoaded={true} // Important if your components contain images
+      virtualized={true}         // Activate virtualization for large grids
     >
       {items.map(item => (
         <YourCustomCard
@@ -85,14 +90,14 @@ const GridWithCustomComponents = () => {
     </StackGrid>
   );
 };
+
+export default GridWithCustomComponents;
 ```
 
 ### Tips for Custom Components
 
-1. **Height Calculation**: The grid automatically detects the rendered height of your components. No special configuration needed!
-
+1. **Height Calculation**: The grid automatically detects the rendered height of your components. No special configuration is needed.
 2. **Images**: If your components contain images, set `monitorImagesLoaded={true}` to ensure proper layout after images load.
-
 3. **Dynamic Content**: If your component's height might change (e.g., expandable cards), call `updateLayout()` after the change:
 
 ```jsx
@@ -121,16 +126,23 @@ const ExpandableCard = ({ content, gridRef }) => {
 
 ## Props
 
-| Property              | Type               | Default     | Description                                                                                    |
-|:---------------------|:-------------------|:------------|:-----------------------------------------------------------------------------------------------|
-| `className`          | `string`           | `undefined` | Additional CSS class for the grid container                                                    |
-| `style`              | `object`           | `{}`        | Additional styles for the grid container                                                       |
-| `gridRef`            | `function`         | `null`      | Ref callback to access the grid instance                                                       |
-| `component`          | `string`           | `"div"`     | HTML tag for the grid container                                                                |
-| `itemComponent`      | `string`           | `"span"`    | HTML tag for grid items                                                                        |
-| `columnWidth`        | `number \| string` | `150`       | Width of each column (px or percentage). Example: `150` or `"33.33%"`                         |
-| `gutterWidth`        | `number`           | `5`         | Horizontal spacing between items (px)                                                          |
-| `gutterHeight`       | `number`           | `5`         | Vertical spacing between items (px)                                                            |
-| `monitorImagesLoaded`| `boolean`          | `false`     | Whether to monitor and reflow when images load                                                 |
-| `enableSSR`          | `boolean`          | `false`     | Enable server-side rendering support                                                           |
-| `onLayout`           | `function`         | `null`
+| Property               | Type                | Default     | Description                                                                                         |
+|------------------------|---------------------|-------------|-----------------------------------------------------------------------------------------------------|
+| `className`            | `string`            | `undefined` | Additional CSS class for the grid container                                                         |
+| `style`                | `object`            | `{}`        | Additional styles for the grid container                                                            |
+| `gridRef`              | `function`          | `null`      | Ref callback to access the grid instance                                                            |
+| `component`            | `string`            | `"div"`     | HTML tag for the grid container                                                                     |
+| `itemComponent`        | `string`            | `"span"`    | HTML tag for grid items                                                                             |
+| `columnWidth`          | `number \| string`  | `150`       | Width of each column (px or percentage). Example: `150` or `"33.33%"`                              |
+| `gutterWidth`          | `number`            | `5`         | Horizontal spacing between items (px)                                                               |
+| `gutterHeight`         | `number`            | `5`         | Vertical spacing between items (px)                                                                 |
+| `monitorImagesLoaded`  | `boolean`           | `false`     | Whether to monitor and reflow when images load                                                      |
+| `enableSSR`            | `boolean`           | `false`     | Enable server-side rendering support                                                                |
+| `onLayout`             | `function`          | `null`      | Callback after layout is complete                                                                   |
+| `horizontal`           | `boolean`           | `false`     | Whether to use horizontal layout                                                                  |
+| `rtl`                  | `boolean`           | `false`     | Enable right-to-left layouts                                                                        |
+| `virtualized`          | `boolean`           | `false`     | **Enable virtualization** – only render items within (or near) the viewport for better performance with large grids |
+
+## License
+
+MIT

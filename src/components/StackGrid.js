@@ -114,6 +114,8 @@ class GridInline extends Component {
     gutterWidth: PropTypes.number,
     gutterHeight: PropTypes.number,
     horizontal: PropTypes.bool,
+    // New prop to enable virtualization
+    virtualized: PropTypes.bool,
   };
 
   static defaultProps = {
@@ -131,6 +133,7 @@ class GridInline extends Component {
     gutterWidth: 5,
     gutterHeight: 5,
     horizontal: false,
+    virtualized: false, // disabled by default
   };
 
   constructor(props) {
@@ -139,7 +142,11 @@ class GridInline extends Component {
     this.itemRefs = {};
     this.imgLoad = {};
     this.mounted = false;
-    this.state = this.doLayout(props);
+    this.state = {
+      ...this.doLayout(props),
+      // Initialize containerRect; if window.innerHeight is available, use it as a default bottom
+      containerRect: { top: 0, bottom: typeof window !== 'undefined' ? window.innerHeight : 800 },
+    };
   }
 
   componentDidMount() {
@@ -148,6 +155,13 @@ class GridInline extends Component {
       this.props.size.registerRef(this);
     }
     this.updateLayout(this.props);
+    // Listen to window scroll and resize to update container bounds for virtualization
+    window.addEventListener('scroll', this.handleScroll);
+    window.addEventListener('resize', this.handleScroll);
+    // Update containerRect immediately
+    if (this.containerRef.current) {
+      this.handleScroll();
+    }
   }
 
   componentDidUpdate(prevProps) {
@@ -161,6 +175,8 @@ class GridInline extends Component {
     if (this.props.size && this.props.size.unregisterRef) {
       this.props.size.unregisterRef(this);
     }
+    window.removeEventListener('scroll', this.handleScroll);
+    window.removeEventListener('resize', this.handleScroll);
     // Clean up any image loading listeners
     Object.keys(this.imgLoad).forEach((key) => {
       if (this.imgLoad[key]) {
@@ -168,6 +184,14 @@ class GridInline extends Component {
       }
     });
   }
+
+  handleScroll = () => {
+    if (this.containerRef.current) {
+      // Get the container's bounding rect relative to the viewport.
+      const rect = this.containerRef.current.getBoundingClientRect();
+      this.setState({ containerRect: rect });
+    }
+  };
 
   setStateIfNeeded(state, callback) {
     if (this.mounted) {
@@ -311,25 +335,41 @@ class GridInline extends Component {
   /* eslint-enable react/no-unused-class-component-methods */
 
   render() {
-    const { className, style, component: ElementType, itemComponent, children, rtl } = this.props;
-    const { rects, height } = this.state;
+    const { className, style, component: ElementType, itemComponent, children, rtl, virtualized } = this.props;
+    const { rects, height, containerRect } = this.state;
     const containerStyle = { position: 'relative', height, ...style };
     const validChildren = React.Children.toArray(children).filter(isValidElement);
+    const buffer = 100; // buffer in pixels to render items just offscreen
+    const gridItems = validChildren.map((child, i) => {
+      const rect = rects[i];
+      if (!rect) return null;
+      // If virtualization is enabled, only render items whose position is in (or near) the viewport.
+      if (virtualized && containerRect) {
+        // Items' absolute positions are relative to the grid container.
+        // The grid container's top relative to the viewport is containerRect.top.
+        const itemTopInViewport = containerRect.top + rect.top;
+        const itemBottomInViewport = itemTopInViewport + rect.height;
+        if (itemBottomInViewport < -buffer || itemTopInViewport > window.innerHeight + buffer) {
+          return null;
+        }
+      }
+      return (
+        <GridItem
+          key={child.key}
+          itemKey={child.key}
+          index={i}
+          component={itemComponent}
+          rect={rect}
+          rtl={rtl}
+          ref={(node) => this.handleItemRef(child.key, node)}
+        >
+          {child}
+        </GridItem>
+      );
+    });
     return (
       <ElementType data-testid="stack-grid-container" className={className} style={containerStyle} ref={this.containerRef}>
-        {validChildren.map((child, i) => (
-          <GridItem
-            key={child.key}
-            itemKey={child.key}
-            index={i}
-            component={itemComponent}
-            rect={rects[i]}
-            rtl={rtl}
-            ref={(node) => this.handleItemRef(child.key, node)}
-          >
-            {child}
-          </GridItem>
-        ))}
+        {gridItems}
       </ElementType>
     );
   }
@@ -378,6 +418,8 @@ StackGrid.propTypes = {
   onLayout: PropTypes.func,
   horizontal: PropTypes.bool,
   rtl: PropTypes.bool,
+  // Pass through virtualization flag
+  virtualized: PropTypes.bool,
 };
 
 StackGrid.defaultProps = {
@@ -395,6 +437,7 @@ StackGrid.defaultProps = {
   onLayout: null,
   horizontal: false,
   rtl: false,
+  virtualized: false,
 };
 
 export { GridInline };
