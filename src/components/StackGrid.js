@@ -54,10 +54,35 @@ const GridItem = React.forwardRef(
       style,
       rtl,
       children,
+      onHeightChange,
       ...rest
     },
     ref
   ) => {
+    const itemRef = React.useRef(null);
+
+    // Use ResizeObserver to detect height changes
+    React.useEffect(() => {
+      if (!itemRef.current || typeof onHeightChange !== 'function') return;
+      let prevHeight = itemRef.current.getBoundingClientRect().height;
+      // Fire initial measurement
+      onHeightChange(prevHeight);
+
+      // Set up ResizeObserver
+      const ro = new ResizeObserver((entries) => {
+        entries.forEach((entry) => {
+          const newH = entry.contentRect.height;
+          if (newH !== prevHeight) {
+            prevHeight = newH;
+            onHeightChange(newH);
+          }
+        });
+      });
+
+      ro.observe(itemRef.current);
+      return () => ro.disconnect();
+    }, [onHeightChange]);
+
     if (!rect) {
       return null;
     }
@@ -72,7 +97,24 @@ const GridItem = React.forwardRef(
       zIndex: 1,
     };
 
-    return <Element {...rest} ref={ref} className="grid-item" style={itemStyle}>{children}</Element>;
+    return (
+      <Element
+        {...rest}
+        ref={(node) => {
+          // Handle both refs
+          if (typeof ref === 'function') {
+            ref(node);
+          } else if (ref) {
+            ref.current = node;
+          }
+          itemRef.current = node;
+        }}
+        className="grid-item"
+        style={itemStyle}
+      >
+        {children}
+      </Element>
+    );
   }
 );
 
@@ -91,6 +133,7 @@ GridItem.propTypes = {
   style: PropTypes.shape({}),
   rtl: PropTypes.bool,
   children: PropTypes.node,
+  onHeightChange: PropTypes.func,
 };
 
 class GridInline extends Component {
@@ -142,9 +185,11 @@ class GridInline extends Component {
     this.itemRefs = {};
     this.imgLoad = {};
     this.mounted = false;
+    this.heightCache = {}; // NEW: Cache for item heights
+    this.scrollRaf = null; // NEW: RAF handle for scroll throttling
+    this.layoutRaf = null; // NEW: RAF handle for layout updates
     this.state = {
       ...this.doLayout(props),
-      // Initialize containerRect; if window.innerHeight is available, use it as a default bottom
       containerRect: { top: 0, bottom: typeof window !== 'undefined' ? window.innerHeight : 800 },
     };
   }
@@ -155,9 +200,9 @@ class GridInline extends Component {
       this.props.size.registerRef(this);
     }
     this.updateLayout(this.props);
-    // Listen to window scroll and resize to update container bounds for virtualization
-    window.addEventListener('scroll', this.handleScroll);
-    window.addEventListener('resize', this.handleScroll);
+    // Use passive scroll listener for better performance
+    window.addEventListener('scroll', this.handleScroll, { passive: true });
+    window.addEventListener('resize', this.handleScroll, { passive: true });
     // Update containerRect immediately
     if (this.containerRef.current) {
       this.handleScroll();
@@ -183,14 +228,24 @@ class GridInline extends Component {
         this.imgLoad[key].off('always');
       }
     });
+    // Clear any pending RAFs
+    if (this.scrollRaf) {
+      cancelAnimationFrame(this.scrollRaf);
+    }
+    if (this.layoutRaf) {
+      cancelAnimationFrame(this.layoutRaf);
+    }
   }
 
   handleScroll = () => {
-    if (this.containerRef.current) {
-      // Get the container's bounding rect relative to the viewport.
-      const rect = this.containerRef.current.getBoundingClientRect();
-      this.setState({ containerRect: rect });
-    }
+    if (this.scrollRaf) return;
+    this.scrollRaf = requestAnimationFrame(() => {
+      if (this.containerRef.current) {
+        const rect = this.containerRef.current.getBoundingClientRect();
+        this.setState({ containerRect: rect });
+      }
+      this.scrollRaf = null;
+    });
   };
 
   setStateIfNeeded(state, callback) {
@@ -200,18 +255,24 @@ class GridInline extends Component {
   }
 
   getItemHeight(key) {
-    if (!key || !this.itemRefs[key]) {
-      return 100; // Default height if no ref
+    // 1) if we've cached it, use that
+    if (this.heightCache[key]) {
+      return this.heightCache[key];
     }
-    const element = this.itemRefs[key];
-    if (!element) return 100;
-    const candidate = [
-      element.offsetHeight,
-      element.scrollHeight,
-      element.clientHeight,
-      100, // fallback default
-    ].filter(isNumber);
-    return Math.max(...candidate);
+    // 2) else if the DOM node exists, measure it & cache it
+    const el = this.itemRefs[key];
+    if (el) {
+      const h = Math.max(
+        el.offsetHeight,
+        el.scrollHeight,
+        el.clientHeight,
+        100 // fallback default
+      );
+      this.heightCache[key] = h;
+      return h;
+    }
+    // 3) fallback
+    return 100;
   }
 
   doLayout(props) {
@@ -244,7 +305,8 @@ class GridInline extends Component {
       // Second pass: Calculate positions while maintaining column assignments
       rects = childArray.map((child, index) => {
         const column = Math.floor(index % maxColumn);
-        const height = this.getItemHeight(child.key) || 0;
+        // Use cached height if available, otherwise measure
+        const height = this.heightCache[child.key] || this.getItemHeight(child.key) || 0;
         const left = Math.round(column * (colWidth + gutterWidth));
         const top = Math.round(columnHeights[column]);
         columnHeights[column] = top + Math.round(height) + gutterHeight;
@@ -252,15 +314,17 @@ class GridInline extends Component {
       });
     } else {
       const sumHeights = childArray.reduce(
-        (sum, child) =>
-          sum + Math.round(this.getItemHeight(child.key) || 0) + gutterHeight,
+        (sum, child) => {
+          const height = this.heightCache[child.key] || this.getItemHeight(child.key) || 0;
+          return sum + Math.round(height) + gutterHeight;
+        },
         0
       );
       const maxHeight = sumHeights / maxColumn;
       let currentColumn = 0;
       rects = childArray.map((child) => {
         const column = currentColumn >= maxColumn - 1 ? maxColumn - 1 : currentColumn;
-        const height = this.getItemHeight(child.key) || 0;
+        const height = this.heightCache[child.key] || this.getItemHeight(child.key) || 0;
         const left = Math.round(column * (colWidth + gutterWidth));
         const top = Math.round(columnHeights[column]);
         columnHeights[column] += Math.round(height) + gutterHeight;
@@ -313,13 +377,29 @@ class GridInline extends Component {
         return;
       }
       this.itemRefs[key] = node;
-      requestAnimationFrame(() => {
-        if (this.mounted) {
-          this.updateLayout();
+      // Cache its height immediately
+      const newHeight = Math.max(
+        node.offsetHeight,
+        node.scrollHeight,
+        node.clientHeight,
+        100 // fallback default
+      );
+      // Always update layout when height changes, even in virtualized mode
+      if (!this.heightCache[key] || this.heightCache[key] !== newHeight) {
+        this.heightCache[key] = newHeight;
+        // Use RAF to batch multiple height changes
+        if (!this.layoutRaf) {
+          this.layoutRaf = requestAnimationFrame(() => {
+            if (this.mounted) {
+              this.updateLayout();
+              this.layoutRaf = null;
+            }
+          });
         }
-      });
+      }
     } else {
       delete this.itemRefs[key];
+      // NOTE: do NOT delete this.heightCache[key] here!
       if (this.imgLoad[key]) {
         this.imgLoad[key].off('always');
         delete this.imgLoad[key];
@@ -334,6 +414,26 @@ class GridInline extends Component {
   };
   /* eslint-enable react/no-unused-class-component-methods */
 
+  // Add a method to force layout update
+  forceLayoutUpdate = () => {
+    if (!this.layoutRaf) {
+      this.layoutRaf = requestAnimationFrame(() => {
+        if (this.mounted) {
+          this.updateLayout();
+          this.layoutRaf = null;
+        }
+      });
+    }
+  };
+
+  // Add a method to handle dynamic height changes
+  handleHeightChange = (key, newHeight) => {
+    if (this.heightCache[key] !== newHeight) {
+      this.heightCache[key] = newHeight;
+      this.forceLayoutUpdate();
+    }
+  };
+
   render() {
     const {
       className,
@@ -347,17 +447,17 @@ class GridInline extends Component {
     const { rects, height, containerRect } = this.state;
     const containerStyle = { position: 'relative', height, ...style };
     const validChildren = React.Children.toArray(children).filter(isValidElement);
-    const buffer = 100; // buffer in pixels to render items just offscreen
+    const buffer = 500; // Increased buffer for smoother scrolling
     const gridItems = validChildren.map((child, i) => {
       const rect = rects[i];
       if (!rect) return null;
       // Skip rendering items that are far from the viewport when virtualization is enabled
       if (virtualized && containerRect) {
-        // Items' absolute positions are relative to the grid container.
-        // The grid container's top relative to the viewport is containerRect.top.
         const itemTopInViewport = containerRect.top + rect.top;
         const itemBottomInViewport = itemTopInViewport + rect.height;
-        if (itemBottomInViewport < -buffer || itemTopInViewport > window.innerHeight + buffer) {
+        const viewportTop = -buffer;
+        const viewportBottom = window.innerHeight + buffer;
+        if (itemBottomInViewport < viewportTop || itemTopInViewport > viewportBottom) {
           return null;
         }
       }
@@ -370,6 +470,7 @@ class GridInline extends Component {
           rect={rect}
           rtl={rtl}
           ref={(node) => this.handleItemRef(child.key, node)}
+          onHeightChange={(newHeight) => this.handleHeightChange(child.key, newHeight)}
         >
           {child}
         </GridItem>

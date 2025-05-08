@@ -47,6 +47,8 @@ function DemoItem({ color, height, index }) {
         position: 'relative',
         zIndex: isExpanded ? 2 : 1,
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <div style={{ textAlign: 'center', flex: 1, display: 'flex', alignItems: 'center' }}>
         <div>
@@ -62,6 +64,23 @@ function DemoItem({ color, height, index }) {
         </div>
       </div>
 
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        style={{
+          backgroundColor: 'rgba(255, 255, 255, 0.2)',
+          border: 'none',
+          color: 'white',
+          padding: '8px 16px',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          transition: 'background-color 0.2s',
+          opacity: isHovered ? 1 : 0.7,
+        }}
+      >
+        {isExpanded ? 'Collapse' : 'Expand'}
+      </button>
+
       {isExpanded && (
         <div
           style={{
@@ -76,27 +95,6 @@ function DemoItem({ color, height, index }) {
           Expanded Content
         </div>
       )}
-
-      <button
-        type="button"
-        onClick={() => setIsExpanded(!isExpanded)}
-        onMouseOver={() => setIsHovered(true)}
-        onMouseOut={() => setIsHovered(false)}
-        onFocus={() => setIsHovered(true)}
-        onBlur={() => setIsHovered(false)}
-        style={{
-          backgroundColor: isHovered ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.2)',
-          border: 'none',
-          color: 'white',
-          padding: '8px 16px',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          marginTop: '10px',
-          transition: 'background-color 0.2s ease',
-        }}
-      >
-        {isExpanded ? 'Collapse' : 'Expand'}
-      </button>
     </div>
   );
 }
@@ -302,8 +300,7 @@ function SimplifiedDemo() {
 
       <div style={{ padding: '20px 0' }}>
         <StackGrid
-          // Enable virtualization by setting it to true
-          virtualized={false}
+          virtualized
           gridRef={(ref) => {
             gridRef = ref;
           }}
