@@ -83,6 +83,30 @@ function BalancedGridDemo() {
     setItems([...items, ...newItems]);
   };
 
+  const addStandardCard = () => {
+    const newItem = {
+      key: `item-${items.length}`,
+      type: 'demo',
+      color: '#4ECDC4',
+      height: STANDARD_HEIGHT,
+      index: items.length + 1,
+      isLong: false,
+    };
+    setItems([...items, newItem]);
+  };
+
+  const addLongCard = () => {
+    const newItem = {
+      key: `item-${items.length}`,
+      type: 'demo',
+      color: '#FF6B6B',
+      height: LONG_CARD_HEIGHT,
+      index: items.length + 1,
+      isLong: true,
+    };
+    setItems([...items, newItem]);
+  };
+
   const removeItems = () => {
     if (items.length > 5) {
       setItems(items.slice(0, items.length - 5));
@@ -111,6 +135,12 @@ function BalancedGridDemo() {
       <div style={{ marginBottom: 20 }}>
         <button type="button" onClick={addItems} style={{ marginRight: 10 }}>
           Add 5 Items
+        </button>
+        <button type="button" onClick={addStandardCard} style={{ marginRight: 10 }}>
+          Add Standard Card
+        </button>
+        <button type="button" onClick={addLongCard} style={{ marginRight: 10 }}>
+          Add Long Card
         </button>
         <button type="button" onClick={removeItems} style={{ marginRight: 10 }}>
           Remove 5 Items

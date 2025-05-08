@@ -209,9 +209,7 @@ class GridInline extends Component {
     this.updateLayout(this.props);
     window.addEventListener('scroll', this.handleScroll, { passive: true });
     window.addEventListener('resize', this.handleScroll, { passive: true });
-    if (this.containerRef.current) {
-      this.handleScroll();
-    }
+    this.handleScroll(); // Initial measurement
   }
 
   componentDidUpdate(prevProps) {
@@ -249,9 +247,9 @@ class GridInline extends Component {
   handleScroll = () => {
     if (this.scrollRaf) return;
     this.scrollRaf = requestAnimationFrame(() => {
-      if (this.containerRef.current) {
-        const rect = this.containerRef.current.getBoundingClientRect();
-        this.setState({ containerRect: rect });
+      if (this.mounted) {
+        // Force a re-render to update virtualization
+        this.forceUpdate();
       }
       this.scrollRaf = null;
     });
@@ -501,21 +499,29 @@ class GridInline extends Component {
     const { rects, height, containerRect } = this.state;
     const containerStyle = { position: 'relative', height, ...style };
     const validChildren = React.Children.toArray(children).filter(isValidElement);
-    const buffer = 500; // Increased buffer for smoother scrolling
-    const actuallyVirtualized = this.initialLayoutDone && virtualized;
+    const buffer = 800; // Increased buffer for smoother scrolling
+    const actuallyVirtualized = virtualized;
+    
     const gridItems = validChildren.map((child, i) => {
       const rect = rects[i];
       if (!rect) return null;
+      
       // Skip rendering items that are far from the viewport when virtualization is enabled
       if (actuallyVirtualized && containerRect) {
-        const itemTopInViewport = containerRect.top + rect.top;
-        const itemBottomInViewport = itemTopInViewport + rect.height;
-        const viewportTop = -buffer;
-        const viewportBottom = window.innerHeight + buffer;
-        if (itemBottomInViewport < viewportTop || itemTopInViewport > viewportBottom) {
+        // Calculate item's position relative to the viewport
+        const itemTop = rect.top;
+        const itemBottom = itemTop + rect.height;
+        
+        // Calculate viewport boundaries
+        const viewportTop = window.scrollY - buffer;
+        const viewportBottom = window.scrollY + window.innerHeight + buffer;
+        
+        // Skip if item is completely outside viewport
+        if (itemBottom < viewportTop || itemTop > viewportBottom) {
           return null;
         }
       }
+      
       return (
         <GridItem
           key={child.key}
@@ -531,6 +537,7 @@ class GridInline extends Component {
         </GridItem>
       );
     });
+    
     return (
       <ElementType
         data-testid="stack-grid-container"
