@@ -80,6 +80,7 @@ const GridItem = React.forwardRef(
       });
 
       ro.observe(itemRef.current);
+      // eslint-disable-next-line consistent-return
       return () => ro.disconnect();
     }, [onHeightChange]);
 
@@ -185,9 +186,12 @@ class GridInline extends Component {
     this.itemRefs = {};
     this.imgLoad = {};
     this.mounted = false;
-    this.heightCache = {}; // NEW: Cache for item heights
-    this.scrollRaf = null; // NEW: RAF handle for scroll throttling
-    this.layoutRaf = null; // NEW: RAF handle for layout updates
+    this.heightCache = {}; // Cache for item heights
+    this.scrollRaf = null; // RAF handle for scroll throttling
+    this.layoutRaf = null; // RAF handle for layout updates
+    this.columnAssignments = null; // Store column assignments
+    this.lastChildrenKeys = []; // Track children keys for change detection
+    this.initialLayoutDone = false; // Track if initial layout is done
     this.state = {
       ...this.doLayout(props),
       containerRect: { top: 0, bottom: typeof window !== 'undefined' ? window.innerHeight : 800 },
@@ -199,17 +203,22 @@ class GridInline extends Component {
     if (this.props.size && this.props.size.registerRef) {
       this.props.size.registerRef(this);
     }
+    // Force initial layout after mount to ensure all heights are measured
+    this.initialLayoutDone = false;
+    this.columnAssignments = null;
     this.updateLayout(this.props);
-    // Use passive scroll listener for better performance
     window.addEventListener('scroll', this.handleScroll, { passive: true });
     window.addEventListener('resize', this.handleScroll, { passive: true });
-    // Update containerRect immediately
     if (this.containerRef.current) {
       this.handleScroll();
     }
   }
 
   componentDidUpdate(prevProps) {
+    // Clear column assignments if children have changed
+    if (prevProps.children !== this.props.children) {
+      this.columnAssignments = null;
+    }
     if (!shallowequal(prevProps, this.props)) {
       this.updateLayout(this.props);
     }
@@ -286,36 +295,63 @@ class GridInline extends Component {
     return results;
   }
 
+  // Helper to compare arrays
+  arraysEqual(a, b) {
+    if (a.length !== b.length) return false;
+    return a.every((val, index) => val === b[index]);
+  }
+
   doLayoutForClient(props) {
-    const { size, children, columnWidth, gutterWidth, gutterHeight, horizontal } = props;
+    const {
+      size,
+      children,
+      columnWidth,
+      gutterWidth,
+      gutterHeight,
+      horizontal,
+      virtualized,
+    } = props;
     const containerWidth = (size && size.width != null) ? size.width : 800;
     const childArray = React.Children.toArray(children).filter(isValidElement);
     const [maxColumn, colWidth] = getColumnLengthAndWidth(containerWidth, columnWidth, gutterWidth);
     const columnHeights = createArray(0, maxColumn);
-    const columnItems = Array.from({ length: maxColumn }, () => []);
     let rects;
 
     if (!horizontal) {
-      // First pass: Assign items to columns in order
-      childArray.forEach((child, index) => {
-        const column = Math.floor(index % maxColumn);
-        columnItems[column].push(child);
-      });
+      // Check if children have changed by comparing keys
+      const keys = childArray.map((c) => c.key);
+      if (!this.arraysEqual(keys, this.lastChildrenKeys)) {
+        this.columnAssignments = null;
+        this.initialLayoutDone = false;
+        this.lastChildrenKeys = keys;
+      }
 
-      // Second pass: Calculate positions while maintaining column assignments
-      rects = childArray.map((child, index) => {
-        const column = Math.floor(index % maxColumn);
-        // Use cached height if available, otherwise measure
-        const height = this.heightCache[child.key] || this.getItemHeight(child.key) || 0;
-        const left = Math.round(column * (colWidth + gutterWidth));
-        const top = Math.round(columnHeights[column]);
-        columnHeights[column] = top + Math.round(height) + gutterHeight;
+      // Only compute column assignments if they don't exist
+      if (!this.columnAssignments) {
+        // Use shortest-column algorithm with whatever heights we have
+        const colHeights = createArray(0, maxColumn);
+        this.columnAssignments = childArray.map((child) => {
+          const col = colHeights.indexOf(Math.min(...colHeights));
+          const h = this.heightCache[child.key] || this.getItemHeight(child.key) || 100;
+          colHeights[col] += h + gutterHeight;
+          return { key: child.key, column: col, height: h };
+        });
+      }
+
+      // Calculate positions using stored column assignments
+      rects = childArray.map((child, i) => {
+        const assignment = this.columnAssignments[i];
+        const height = this.heightCache[child.key] || this.getItemHeight(child.key) || 100;
+        const left = Math.round(assignment.column * (colWidth + gutterWidth));
+        const top = Math.round(columnHeights[assignment.column]);
+        columnHeights[assignment.column] = top + Math.round(height) + gutterHeight;
         return { top, left, width: colWidth, height };
       });
     } else {
+      // Keep existing horizontal layout logic
       const sumHeights = childArray.reduce(
         (sum, child) => {
-          const height = this.heightCache[child.key] || this.getItemHeight(child.key) || 0;
+          const height = this.heightCache[child.key] || this.getItemHeight(child.key) || 100;
           return sum + Math.round(height) + gutterHeight;
         },
         0
@@ -324,7 +360,7 @@ class GridInline extends Component {
       let currentColumn = 0;
       rects = childArray.map((child) => {
         const column = currentColumn >= maxColumn - 1 ? maxColumn - 1 : currentColumn;
-        const height = this.heightCache[child.key] || this.getItemHeight(child.key) || 0;
+        const height = this.heightCache[child.key] || this.getItemHeight(child.key) || 100;
         const left = Math.round(column * (colWidth + gutterWidth));
         const top = Math.round(columnHeights[column]);
         columnHeights[column] += Math.round(height) + gutterHeight;
@@ -426,11 +462,29 @@ class GridInline extends Component {
     }
   };
 
-  // Add a method to handle dynamic height changes
   handleHeightChange = (key, newHeight) => {
     if (this.heightCache[key] !== newHeight) {
       this.heightCache[key] = newHeight;
-      this.forceLayoutUpdate();
+      // Update height in column assignments if it exists
+      if (this.columnAssignments) {
+        const assignment = this.columnAssignments.find((a) => a.key === key);
+        if (assignment) {
+          assignment.height = newHeight;
+        }
+      }
+
+      // Check if we've measured all items
+      if (!this.initialLayoutDone && this.columnAssignments) {
+        const allMeasured = this.columnAssignments.every(
+          (assignment) => this.heightCache[assignment.key] && this.heightCache[assignment.key] > 100
+        );
+        if (allMeasured) {
+          this.initialLayoutDone = true;
+          this.forceLayoutUpdate();
+        }
+      } else {
+        this.forceLayoutUpdate();
+      }
     }
   };
 
@@ -448,11 +502,12 @@ class GridInline extends Component {
     const containerStyle = { position: 'relative', height, ...style };
     const validChildren = React.Children.toArray(children).filter(isValidElement);
     const buffer = 500; // Increased buffer for smoother scrolling
+    const actuallyVirtualized = this.initialLayoutDone && virtualized;
     const gridItems = validChildren.map((child, i) => {
       const rect = rects[i];
       if (!rect) return null;
       // Skip rendering items that are far from the viewport when virtualization is enabled
-      if (virtualized && containerRect) {
+      if (actuallyVirtualized && containerRect) {
         const itemTopInViewport = containerRect.top + rect.top;
         const itemBottomInViewport = itemTopInViewport + rect.height;
         const viewportTop = -buffer;
