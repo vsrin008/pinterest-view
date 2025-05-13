@@ -167,6 +167,8 @@ class GridInline extends Component {
     this.columnAssignments = null;
     this.lastChildrenKeys = [];
     this.initialLayoutDone = false;
+    // track previous maxCol so we can invalidate assignments when it changes
+    this._prevMaxCol = null;
     this.state = {
       ...this.doLayout(props),
       containerRect: {
@@ -220,9 +222,9 @@ class GridInline extends Component {
           containerTop: rect.top,
           containerBottom: rect.bottom
         });
-        this.setState({ 
+        this.setState({
           containerRect: rect,
-          scrollTop 
+          scrollTop
         }, () => {
           this.forceUpdate();
         });
@@ -261,6 +263,13 @@ class GridInline extends Component {
     const w = size?.width ?? 800;
     const arr = React.Children.toArray(children).filter(isValidElement);
     const [maxCol, colW] = getColumnLengthAndWidth(w, columnWidth, gutterWidth);
+
+    // 🔥 Invalidate previous columnAssignments when the number of columns changes
+    if (this._prevMaxCol !== maxCol) {
+      this._prevMaxCol = maxCol;
+      this.columnAssignments = null;
+    }
+
     const colHeights = createArray(0, maxCol);
     let rects;
 
@@ -396,20 +405,20 @@ class GridInline extends Component {
       virtualized,
     } = this.props;
     const { rects, height, containerRect, scrollTop } = this.state;
-    const containerStyle = { 
-      position: 'relative', 
-      height, 
+    const containerStyle = {
+      position: 'relative',
+      height,
       overflow: 'visible',
-      ...style 
+      ...style
     };
     const validChildren = React.Children.toArray(children).filter(isValidElement);
     const buffer = 800;
     const actuallyVirtualized = virtualized;
-    
+
     // Calculate viewport boundaries in absolute coordinates
     const viewportTop = scrollTop - buffer;
     const viewportBottom = scrollTop + window.innerHeight + buffer;
-    
+
     console.log('Viewport Calculation:', {
       scrollTop,
       viewportTop,
@@ -417,15 +426,15 @@ class GridInline extends Component {
       windowHeight: window.innerHeight,
       containerHeight: containerRect?.height
     });
-    
+
     const gridItems = validChildren.map((child, i) => {
       const rect = rects[i];
       if (!rect) return null;
-      
+
       if (actuallyVirtualized && containerRect) {
         const itemTop = rect.top;
         const itemBottom = itemTop + rect.height;
-        
+
         const isVisible = !(itemBottom < viewportTop || itemTop > viewportBottom);
         console.log(`Item ${i} visibility:`, {
           itemTop,
@@ -436,12 +445,12 @@ class GridInline extends Component {
           height: rect.height,
           scrollTop
         });
-        
+
         if (!isVisible) {
           return null;
         }
       }
-      
+
       return (
         <GridItem
           key={child.key}
@@ -457,7 +466,7 @@ class GridInline extends Component {
         </GridItem>
       );
     });
-    
+
     return (
       <ElementType
         data-testid="stack-grid-container"
