@@ -1,8 +1,6 @@
 /* eslint-disable max-classes-per-file */
 /* eslint-disable react/default-props-match-prop-types */
 /* eslint-disable react/no-unused-prop-types */
-/* eslint-disable react/destructuring-assignment */
-// Note: This file has been converted to plain JavaScript by removing Flow/TypeScript annotations.
 
 import React, { Component, isValidElement } from 'react';
 import PropTypes from 'prop-types';
@@ -15,112 +13,90 @@ const isNumber = (v) => typeof v === 'number' && Number.isFinite(v);
 const isPercentageNumber = (v) =>
   typeof v === 'string' && /^\d+(\.\d+)?%$/.test(v);
 
-// Helper to create arrays of a specific length with the same value
 const createArray = (v, l) => {
-  const array = [];
-  for (let i = 0; i < l; i += 1) {
-    array.push(v);
-  }
-  return array;
+  const arr = [];
+  for (let i = 0; i < l; i++) arr.push(v);
+  return arr;
 };
 
-/* eslint-disable consistent-return */
 const getColumnLengthAndWidth = (width, value, gutter) => {
   if (isNumber(value)) {
-    const columnWidth = parseFloat(value);
+    const cw = parseFloat(value);
     return [
-      Math.floor((width - (width / columnWidth - 1) * gutter) / columnWidth),
-      columnWidth,
+      Math.floor((width - (width / cw - 1) * gutter) / cw),
+      cw,
     ];
   }
   if (isPercentageNumber(value)) {
-    const columnPercentage = parseFloat(value) / 100;
-    const maxColumn = Math.floor(1 / columnPercentage);
-    const columnWidth = (width - gutter * (maxColumn - 1)) / maxColumn;
-    return [maxColumn, columnWidth];
+    const pct = parseFloat(value) / 100;
+    const maxCol = Math.floor(1 / pct);
+    const colWidth = (width - gutter * (maxCol - 1)) / maxCol;
+    return [maxCol, colWidth];
   }
-  invariant(false, 'Should be columnWidth is a number or percentage string.');
+  invariant(false, 'columnWidth must be a number or percentage string.');
 };
-/* eslint-enable consistent-return */
 
-// Simplified GridItem component without transitions
-const GridItem = React.forwardRef(
-  (
-    {
-      itemKey,
-      index,
-      component: Element,
-      rect = { top: 0, left: 0, width: 0, height: 0 },
-      style,
-      rtl,
-      children,
-      onHeightChange,
-      ...rest
-    },
-    ref
-  ) => {
-    const itemRef = React.useRef(null);
+const GridItem = React.forwardRef((
+  {
+    itemKey,
+    index,
+    component: Element,
+    rect = { top: 0, left: 0, width: 0, height: 0 },
+    style,
+    rtl,
+    children,
+    onHeightChange,
+    ...rest
+  },
+  ref
+) => {
+  const itemRef = React.useRef(null);
 
-    // Use ResizeObserver to detect height changes
-    React.useEffect(() => {
-      if (!itemRef.current || typeof onHeightChange !== 'function') return;
-      let prevHeight = itemRef.current.getBoundingClientRect().height;
-      // Fire initial measurement
-      onHeightChange(prevHeight);
-
-      // Set up ResizeObserver
-      const ro = new ResizeObserver((entries) => {
-        entries.forEach((entry) => {
-          const newH = entry.contentRect.height;
-          if (newH !== prevHeight) {
-            prevHeight = newH;
-            onHeightChange(newH);
-          }
-        });
+  React.useEffect(() => {
+    if (!itemRef.current || typeof onHeightChange !== 'function') return;
+    let prevH = itemRef.current.getBoundingClientRect().height;
+    onHeightChange(prevH);
+    const ro = new ResizeObserver((entries) => {
+      entries.forEach((entry) => {
+        const h = entry.contentRect.height;
+        if (h !== prevH) {
+          prevH = h;
+          onHeightChange(h);
+        }
       });
+    });
+    ro.observe(itemRef.current);
+    return () => ro.disconnect();
+  }, [onHeightChange]);
 
-      ro.observe(itemRef.current);
-      // eslint-disable-next-line consistent-return
-      return () => ro.disconnect();
-    }, [onHeightChange]);
+  const itemStyle = {
+    ...style,
+    display: 'block',
+    position: 'absolute',
+    top: 0,
+    ...(rtl ? { right: 0 } : { left: 0 }),
+    width: rect.width,
+    transform: `translateX(${rtl ? -rect.left : rect.left}px) translateY(${rect.top}px)`,
+    zIndex: 1,
+  };
 
-    if (!rect) {
-      return null;
-    }
-    const itemStyle = {
-      ...style,
-      display: 'block',
-      position: 'absolute',
-      top: 0,
-      ...(rtl ? { right: 0 } : { left: 0 }),
-      width: rect.width || 0,
-      transform: `translateX(${rtl ? -(rect.left || 0) : rect.left || 0}px) translateY(${rect.top || 0}px)`,
-      zIndex: 1,
-    };
-
-    return (
-      <Element
-        {...rest}
-        ref={(node) => {
-          // Handle both refs
-          if (typeof ref === 'function') {
-            ref(node);
-          } else if (ref) {
-            ref.current = node;
-          }
-          itemRef.current = node;
-        }}
-        className="grid-item"
-        style={itemStyle}
-      >
-        {children}
-      </Element>
-    );
-  }
-);
+  return (
+    <Element
+      {...rest}
+      ref={(node) => {
+        if (typeof ref === 'function') ref(node);
+        else if (ref) ref.current = node;
+        itemRef.current = node;
+      }}
+      className="grid-item"
+      style={itemStyle}
+    >
+      {children}
+    </Element>
+  );
+});
 
 GridItem.displayName = 'GridItem';
-
 GridItem.propTypes = {
   itemKey: PropTypes.string,
   index: PropTypes.number,
@@ -131,7 +107,7 @@ GridItem.propTypes = {
     width: PropTypes.number,
     height: PropTypes.number,
   }),
-  style: PropTypes.shape({}),
+  style: PropTypes.object,
   rtl: PropTypes.bool,
   children: PropTypes.node,
   onHeightChange: PropTypes.func,
@@ -140,7 +116,7 @@ GridItem.propTypes = {
 class GridInline extends Component {
   static propTypes = {
     className: PropTypes.string,
-    style: PropTypes.shape({}),
+    style: PropTypes.object,
     component: PropTypes.string,
     itemComponent: PropTypes.string,
     children: PropTypes.node,
@@ -158,7 +134,6 @@ class GridInline extends Component {
     gutterWidth: PropTypes.number,
     gutterHeight: PropTypes.number,
     horizontal: PropTypes.bool,
-    // New prop to enable virtualization
     virtualized: PropTypes.bool,
   };
 
@@ -177,7 +152,7 @@ class GridInline extends Component {
     gutterWidth: 5,
     gutterHeight: 5,
     horizontal: false,
-    virtualized: false, // disabled by default
+    virtualized: false,
   };
 
   constructor(props) {
@@ -186,303 +161,227 @@ class GridInline extends Component {
     this.itemRefs = {};
     this.imgLoad = {};
     this.mounted = false;
-    this.heightCache = {}; // Cache for item heights
-    this.scrollRaf = null; // RAF handle for scroll throttling
-    this.layoutRaf = null; // RAF handle for layout updates
-    this.columnAssignments = null; // Store column assignments
-    this.lastChildrenKeys = []; // Track children keys for change detection
-    this.initialLayoutDone = false; // Track if initial layout is done
+    this.heightCache = {};
+    this.scrollRaf = null;
+    this.layoutRaf = null;
+    this.columnAssignments = null;
+    this.lastChildrenKeys = [];
+    this.initialLayoutDone = false;
     this.state = {
       ...this.doLayout(props),
-      containerRect: { top: 0, bottom: typeof window !== 'undefined' ? window.innerHeight : 800 },
+      containerRect: {
+        top: 0,
+        bottom: ExecutionEnvironment.canUseDOM ? window.innerHeight : 800,
+      },
     };
   }
 
   componentDidMount() {
     this.mounted = true;
-    if (this.props.size && this.props.size.registerRef) {
-      this.props.size.registerRef(this);
-    }
-    // Force initial layout after mount to ensure all heights are measured
+    this.props.size?.registerRef?.(this);
     this.initialLayoutDone = false;
     this.columnAssignments = null;
     this.updateLayout(this.props);
+
     window.addEventListener('scroll', this.handleScroll, { passive: true });
     window.addEventListener('resize', this.handleScroll, { passive: true });
-    this.handleScroll(); // Initial measurement
+    this.handleScroll();
   }
 
-  componentDidUpdate(prevProps) {
-    // Clear column assignments if children have changed
-    if (prevProps.children !== this.props.children) {
+  componentDidUpdate(prev) {
+    if (prev.children !== this.props.children) {
       this.columnAssignments = null;
     }
-    if (!shallowequal(prevProps, this.props)) {
+    if (!shallowequal(prev, this.props)) {
       this.updateLayout(this.props);
     }
   }
 
   componentWillUnmount() {
     this.mounted = false;
-    if (this.props.size && this.props.size.unregisterRef) {
-      this.props.size.unregisterRef(this);
-    }
+    this.props.size?.unregisterRef?.(this);
     window.removeEventListener('scroll', this.handleScroll);
     window.removeEventListener('resize', this.handleScroll);
-    // Clean up any image loading listeners
-    Object.keys(this.imgLoad).forEach((key) => {
-      if (this.imgLoad[key]) {
-        this.imgLoad[key].off('always');
-      }
-    });
-    // Clear any pending RAFs
-    if (this.scrollRaf) {
-      cancelAnimationFrame(this.scrollRaf);
-    }
-    if (this.layoutRaf) {
-      cancelAnimationFrame(this.layoutRaf);
-    }
+    if (this.scrollRaf) cancelAnimationFrame(this.scrollRaf);
+    if (this.layoutRaf) cancelAnimationFrame(this.layoutRaf);
+    Object.values(this.imgLoad).forEach(l => l.off?.('always'));
   }
 
   handleScroll = () => {
     if (this.scrollRaf) return;
     this.scrollRaf = requestAnimationFrame(() => {
-      if (this.mounted) {
-        // Force a re-render to update virtualization
-        this.forceUpdate();
+      if (this.mounted && this.containerRef.current) {
+        const rect = this.containerRef.current.getBoundingClientRect();
+        const scrollTop = window.scrollY;
+        console.log('Scroll Update:', {
+          scrollTop,
+          containerHeight: rect.height,
+          windowHeight: window.innerHeight,
+          containerTop: rect.top,
+          containerBottom: rect.bottom
+        });
+        this.setState({ 
+          containerRect: rect,
+          scrollTop 
+        }, () => {
+          this.forceUpdate();
+        });
       }
       this.scrollRaf = null;
     });
   };
 
-  setStateIfNeeded(state, callback) {
-    if (this.mounted) {
-      this.setState(state, callback);
-    }
-  }
+  setStateIfNeeded = (st, cb) => {
+    if (this.mounted) this.setState(st, cb);
+  };
 
-  getItemHeight(key) {
-    // 1) if we've cached it, use that
-    if (this.heightCache[key]) {
-      return this.heightCache[key];
-    }
-    // 2) else if the DOM node exists, measure it & cache it
+  getItemHeight = (key) => {
+    if (this.heightCache[key]) return this.heightCache[key];
     const el = this.itemRefs[key];
     if (el) {
-      const h = Math.max(
-        el.offsetHeight,
-        el.scrollHeight,
-        el.clientHeight,
-        100 // fallback default
-      );
+      const h = Math.max(el.offsetHeight, el.scrollHeight, el.clientHeight, 100);
       this.heightCache[key] = h;
       return h;
     }
-    // 3) fallback
     return 100;
-  }
+  };
 
-  doLayout(props) {
-    if (!ExecutionEnvironment.canUseDOM) {
-      return this.doLayoutForSSR(props);
-    }
-    const results = this.doLayoutForClient(props);
-    if (this.mounted && typeof this.props.onLayout === 'function') {
-      this.props.onLayout();
-    }
-    return results;
-  }
+  doLayout = (props) => {
+    if (!ExecutionEnvironment.canUseDOM) return this.doLayoutForSSR(props);
+    const res = this.doLayoutForClient(props);
+    this.mounted && typeof this.props.onLayout === 'function' && this.props.onLayout();
+    return res;
+  };
 
-  // Helper to compare arrays
-  arraysEqual(a, b) {
-    if (a.length !== b.length) return false;
-    return a.every((val, index) => val === b[index]);
-  }
-
-  doLayoutForClient(props) {
+  doLayoutForClient = (props) => {
     const {
-      size,
-      children,
-      columnWidth,
-      gutterWidth,
-      gutterHeight,
-      horizontal,
-      virtualized,
+      size, children, columnWidth, gutterWidth, gutterHeight,
+      horizontal, virtualized,
     } = props;
-    const containerWidth = (size && size.width != null) ? size.width : 800;
-    const childArray = React.Children.toArray(children).filter(isValidElement);
-    const [maxColumn, colWidth] = getColumnLengthAndWidth(containerWidth, columnWidth, gutterWidth);
-    const columnHeights = createArray(0, maxColumn);
+    const w = size?.width ?? 800;
+    const arr = React.Children.toArray(children).filter(isValidElement);
+    const [maxCol, colW] = getColumnLengthAndWidth(w, columnWidth, gutterWidth);
+    const colHeights = createArray(0, maxCol);
     let rects;
 
     if (!horizontal) {
-      // Check if children have changed by comparing keys
-      const keys = childArray.map((c) => c.key);
+      const keys = arr.map(c => c.key);
       if (!this.arraysEqual(keys, this.lastChildrenKeys)) {
         this.columnAssignments = null;
         this.initialLayoutDone = false;
         this.lastChildrenKeys = keys;
       }
-
-      // Only compute column assignments if they don't exist
       if (!this.columnAssignments) {
-        // Use shortest-column algorithm with whatever heights we have
-        const colHeights = createArray(0, maxColumn);
-        this.columnAssignments = childArray.map((child) => {
-          const col = colHeights.indexOf(Math.min(...colHeights));
-          const h = this.heightCache[child.key] || this.getItemHeight(child.key) || 100;
-          colHeights[col] += h + gutterHeight;
+        const temps = createArray(0, maxCol);
+        this.columnAssignments = arr.map(child => {
+          const col = temps.indexOf(Math.min(...temps));
+          const h = this.heightCache[child.key] ?? this.getItemHeight(child.key);
+          temps[col] += h + gutterHeight;
           return { key: child.key, column: col, height: h };
         });
       }
 
-      // Calculate positions using stored column assignments
-      rects = childArray.map((child, i) => {
-        const assignment = this.columnAssignments[i];
-        const height = this.heightCache[child.key] || this.getItemHeight(child.key) || 100;
-        const left = Math.round(assignment.column * (colWidth + gutterWidth));
-        const top = Math.round(columnHeights[assignment.column]);
-        columnHeights[assignment.column] = top + Math.round(height) + gutterHeight;
-        return { top, left, width: colWidth, height };
+      // Debug column assignments
+      console.log('Column Assignments:', this.columnAssignments.map(a => ({
+        key: a.key,
+        column: a.column,
+        height: a.height
+      })));
+
+      rects = arr.map((child, i) => {
+        const a = this.columnAssignments[i];
+        const h = this.heightCache[child.key] ?? this.getItemHeight(child.key);
+        const left = Math.round(a.column * (colW + gutterWidth));
+        const top = Math.round(colHeights[a.column]);
+        colHeights[a.column] = top + Math.round(h) + gutterHeight;
+
+        // Debug item placement
+        console.log(`Item ${i} placement:`, {
+          column: a.column,
+          height: h,
+          top,
+          left,
+          columnHeight: colHeights[a.column]
+        });
+
+        return { top, left, width: colW, height: h };
       });
+
+      // Debug final column heights
+      console.log('Final Column Heights:', colHeights);
     } else {
-      // Keep existing horizontal layout logic
-      const sumHeights = childArray.reduce(
-        (sum, child) => {
-          const height = this.heightCache[child.key] || this.getItemHeight(child.key) || 100;
-          return sum + Math.round(height) + gutterHeight;
-        },
-        0
-      );
-      const maxHeight = sumHeights / maxColumn;
-      let currentColumn = 0;
-      rects = childArray.map((child) => {
-        const column = currentColumn >= maxColumn - 1 ? maxColumn - 1 : currentColumn;
-        const height = this.heightCache[child.key] || this.getItemHeight(child.key) || 100;
-        const left = Math.round(column * (colWidth + gutterWidth));
-        const top = Math.round(columnHeights[column]);
-        columnHeights[column] += Math.round(height) + gutterHeight;
-        if (columnHeights[column] >= maxHeight) {
-          currentColumn = Math.min(currentColumn + 1, maxColumn - 1);
-        }
-        return { top, left, width: colWidth, height };
-      });
+      rects = arr.map((_, i) => ({ top: 0, left: 0, width: 0, height: 0 }));
     }
-    const width = maxColumn * colWidth + (maxColumn - 1) * gutterWidth;
-    const height = Math.max(...columnHeights) - gutterHeight;
-    const offset = Math.max(0, (containerWidth - width) / 2);
-    const finalRects = rects.map((o) => ({
+
+    const totalW = maxCol * colW + (maxCol - 1) * gutterWidth;
+    const totalH = Math.max(...colHeights) - gutterHeight;
+    const offset = Math.max(0, (w - totalW) / 2);
+    const final = rects.map(o => ({
       ...o,
       left: Math.round(o.left + offset),
       top: Math.round(o.top),
     }));
-    return { rects: finalRects, actualWidth: width, height, columnWidth: colWidth };
-  }
 
-  /* eslint-disable class-methods-use-this */
+    return { rects: final, actualWidth: totalW, height: totalH, columnWidth: colW };
+  };
+
   doLayoutForSSR = (props) => {
-    const { children } = props;
+    const arr = React.Children.toArray(props.children);
     return {
-      rects: React.Children.toArray(children).map(() => ({
-        top: 0,
-        left: 0,
-        width: 0,
-        height: 0,
-      })),
+      rects: arr.map(() => ({ top: 0, left: 0, width: 0, height: 0 })),
       actualWidth: 0,
       height: 0,
       columnWidth: 0,
     };
   };
-  /* eslint-enable class-methods-use-this */
 
-  updateLayout(props) {
+  updateLayout = (props) => {
     if (!this.mounted) return;
-    const nextProps = props || this.props;
-    const newLayout = this.doLayout(nextProps);
-    this.setStateIfNeeded(newLayout, () => {
-      // Optionally, validate layout here using requestAnimationFrame
-    });
-  }
+    const next = props || this.props;
+    const nl = this.doLayout(next);
+    this.setStateIfNeeded(nl);
+  };
+
+  arraysEqual = (a, b) => a.length === b.length && a.every((v,i) => v === b[i]);
+
+  forceLayoutUpdate = () => {
+    if (!this.layoutRaf) {
+      this.layoutRaf = requestAnimationFrame(() => {
+        if (this.mounted) this.updateLayout();
+        this.layoutRaf = null;
+      });
+    }
+  };
 
   handleItemRef = (key, node) => {
     if (node) {
-      if (this.itemRefs[key] && this.itemRefs[key] !== node) {
-        return;
-      }
+      if (this.itemRefs[key] && this.itemRefs[key] !== node) return;
       this.itemRefs[key] = node;
-      // Cache its height immediately
-      const newHeight = Math.max(
-        node.offsetHeight,
-        node.scrollHeight,
-        node.clientHeight,
-        100 // fallback default
-      );
-      // Always update layout when height changes, even in virtualized mode
-      if (!this.heightCache[key] || this.heightCache[key] !== newHeight) {
-        this.heightCache[key] = newHeight;
-        // Use RAF to batch multiple height changes
+      const newH = Math.max(node.offsetHeight, node.scrollHeight, node.clientHeight, 100);
+      if (!this.heightCache[key] || this.heightCache[key] !== newH) {
+        this.heightCache[key] = newH;
         if (!this.layoutRaf) {
           this.layoutRaf = requestAnimationFrame(() => {
-            if (this.mounted) {
-              this.updateLayout();
-              this.layoutRaf = null;
-            }
+            if (this.mounted) this.updateLayout();
+            this.layoutRaf = null;
           });
         }
       }
     } else {
       delete this.itemRefs[key];
-      // NOTE: do NOT delete this.heightCache[key] here!
-      if (this.imgLoad[key]) {
-        this.imgLoad[key].off('always');
-        delete this.imgLoad[key];
-      }
+      this.imgLoad[key]?.off('always');
+      delete this.imgLoad[key];
     }
   };
 
-  /* eslint-disable react/no-unused-class-component-methods */
-  handleRef = () => {
-    const { refCallback } = this.props;
-    refCallback(this);
-  };
-  /* eslint-enable react/no-unused-class-component-methods */
-
-  // Add a method to force layout update
-  forceLayoutUpdate = () => {
-    if (!this.layoutRaf) {
-      this.layoutRaf = requestAnimationFrame(() => {
-        if (this.mounted) {
-          this.updateLayout();
-          this.layoutRaf = null;
-        }
-      });
-    }
-  };
-
-  handleHeightChange = (key, newHeight) => {
-    if (this.heightCache[key] !== newHeight) {
-      this.heightCache[key] = newHeight;
-      // Update height in column assignments if it exists
+  handleHeightChange = (key, h) => {
+    if (this.heightCache[key] !== h) {
+      this.heightCache[key] = h;
       if (this.columnAssignments) {
-        const assignment = this.columnAssignments.find((a) => a.key === key);
-        if (assignment) {
-          assignment.height = newHeight;
-        }
+        const as = this.columnAssignments.find(a => a.key === key);
+        if (as) as.height = h;
       }
-
-      // Check if we've measured all items
-      if (!this.initialLayoutDone && this.columnAssignments) {
-        const allMeasured = this.columnAssignments.every(
-          (assignment) => this.heightCache[assignment.key] && this.heightCache[assignment.key] > 100
-        );
-        if (allMeasured) {
-          this.initialLayoutDone = true;
-          this.forceLayoutUpdate();
-        }
-      } else {
-        this.forceLayoutUpdate();
-      }
+      this.forceLayoutUpdate();
     }
   };
 
@@ -496,28 +395,49 @@ class GridInline extends Component {
       rtl,
       virtualized,
     } = this.props;
-    const { rects, height, containerRect } = this.state;
-    const containerStyle = { position: 'relative', height, ...style };
+    const { rects, height, containerRect, scrollTop } = this.state;
+    const containerStyle = { 
+      position: 'relative', 
+      height, 
+      overflow: 'visible',
+      ...style 
+    };
     const validChildren = React.Children.toArray(children).filter(isValidElement);
-    const buffer = 800; // Increased buffer for smoother scrolling
+    const buffer = 800;
     const actuallyVirtualized = virtualized;
+    
+    // Calculate viewport boundaries in absolute coordinates
+    const viewportTop = scrollTop - buffer;
+    const viewportBottom = scrollTop + window.innerHeight + buffer;
+    
+    console.log('Viewport Calculation:', {
+      scrollTop,
+      viewportTop,
+      viewportBottom,
+      windowHeight: window.innerHeight,
+      containerHeight: containerRect?.height
+    });
     
     const gridItems = validChildren.map((child, i) => {
       const rect = rects[i];
       if (!rect) return null;
       
-      // Skip rendering items that are far from the viewport when virtualization is enabled
       if (actuallyVirtualized && containerRect) {
-        // Calculate item's position relative to the viewport
         const itemTop = rect.top;
         const itemBottom = itemTop + rect.height;
         
-        // Calculate viewport boundaries
-        const viewportTop = window.scrollY - buffer;
-        const viewportBottom = window.scrollY + window.innerHeight + buffer;
+        const isVisible = !(itemBottom < viewportTop || itemTop > viewportBottom);
+        console.log(`Item ${i} visibility:`, {
+          itemTop,
+          itemBottom,
+          viewportTop,
+          viewportBottom,
+          isVisible,
+          height: rect.height,
+          scrollTop
+        });
         
-        // Skip if item is completely outside viewport
-        if (itemBottom < viewportTop || itemTop > viewportBottom) {
+        if (!isVisible) {
           return null;
         }
       }
@@ -552,16 +472,12 @@ class GridInline extends Component {
 }
 
 class StackGrid extends Component {
-  /* eslint-disable react/no-unused-class-component-methods */
   updateLayout() {
-    if (this.grid) {
-      this.grid.updateLayout();
-    }
+    this.grid?.updateLayout();
   }
-  /* eslint-enable react/no-unused-class-component-methods */
 
-  handleRef = (grid) => {
-    this.grid = grid;
+  handleRef = (g) => {
+    this.grid = g;
     if (typeof this.props.gridRef === 'function') {
       this.props.gridRef(this);
     }
@@ -580,7 +496,7 @@ class StackGrid extends Component {
 StackGrid.propTypes = {
   children: PropTypes.node,
   className: PropTypes.string,
-  style: PropTypes.shape({}),
+  style: PropTypes.object,
   gridRef: PropTypes.func,
   component: PropTypes.string,
   itemComponent: PropTypes.string,
@@ -588,13 +504,10 @@ StackGrid.propTypes = {
   gutterWidth: PropTypes.number,
   gutterHeight: PropTypes.number,
   monitorImagesLoaded: PropTypes.bool,
-  vendorPrefix: PropTypes.bool,
-  userAgent: PropTypes.string,
   enableSSR: PropTypes.bool,
   onLayout: PropTypes.func,
   horizontal: PropTypes.bool,
   rtl: PropTypes.bool,
-  // Pass through virtualization flag
   virtualized: PropTypes.bool,
 };
 
@@ -607,8 +520,6 @@ StackGrid.defaultProps = {
   gutterWidth: 5,
   gutterHeight: 5,
   monitorImagesLoaded: false,
-  vendorPrefix: true,
-  userAgent: null,
   enableSSR: false,
   onLayout: null,
   horizontal: false,
