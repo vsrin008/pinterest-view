@@ -262,7 +262,10 @@ class GridInline extends Component {
     } = props;
     const w = size?.width ?? 800;
     const arr = React.Children.toArray(children).filter(isValidElement);
-    const [maxCol, colW] = getColumnLengthAndWidth(w, columnWidth, gutterWidth);
+    // force at least one column
+    const [rawMaxCol, colW] = getColumnLengthAndWidth(w, columnWidth, gutterWidth);
+    const maxCol = Math.max(1, rawMaxCol);
+
 
     // 🔥 Invalidate previous columnAssignments when the number of columns changes
     if (this._prevMaxCol !== maxCol) {
