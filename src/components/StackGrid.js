@@ -185,7 +185,7 @@ class GridInline extends Component {
     this.columnAssignments = null;
     this.updateLayout(this.props);
 
-    window.addEventListener('scroll', this.handleScroll, { passive: true });
+    this.containerRef.current?.addEventListener('scroll', this.handleScroll, { passive: true });
     window.addEventListener('resize', this.handleScroll, { passive: true });
     this.handleScroll();
   }
@@ -202,7 +202,7 @@ class GridInline extends Component {
   componentWillUnmount() {
     this.mounted = false;
     this.props.size?.unregisterRef?.(this);
-    window.removeEventListener('scroll', this.handleScroll);
+    this.containerRef.current?.removeEventListener('scroll', this.handleScroll);
     window.removeEventListener('resize', this.handleScroll);
     if (this.scrollRaf) cancelAnimationFrame(this.scrollRaf);
     if (this.layoutRaf) cancelAnimationFrame(this.layoutRaf);
