@@ -214,7 +214,7 @@ class GridInline extends Component {
     this.scrollRaf = requestAnimationFrame(() => {
       if (this.mounted && this.containerRef.current) {
         const rect = this.containerRef.current.getBoundingClientRect();
-        const scrollTop = window.scrollY;
+        const scrollTop = this.containerRef.current?.scrollTop ?? 0;
         console.log('Scroll Update:', {
           scrollTop,
           containerHeight: rect.height,
