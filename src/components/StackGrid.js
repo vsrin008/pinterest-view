@@ -251,7 +251,7 @@ class GridInline extends Component {
   doLayout = (props) => {
     if (!ExecutionEnvironment.canUseDOM) return this.doLayoutForSSR(props);
     const res = this.doLayoutForClient(props);
-    this.mounted && typeof this.props.onLayout === 'function' && this.props.onLayout();
+    this.mounted && typeof this.props.onLayout === 'function' && this.props.onLayout({ height: res.height });
     return res;
   };
 
