@@ -186,6 +186,12 @@ class GridInline extends Component {
   componentDidMount() {
     this.mounted = true;
     this.props.size?.registerRef?.(this);
+    if (typeof this.props.gridRef === 'function') {
+      if (this._debugLoggingEnabled) {
+        console.log('[StackGrid] GridInline::componentDidMount - Calling this.props.gridRef (which is StackGrid.handleRef) with GridInline instance.');
+      }
+      this.props.gridRef(this);
+    }
     this.initialLayoutDone = false;
     this.columnAssignments = null;
     this.updateLayout(this.props);
@@ -555,8 +561,14 @@ class StackGrid extends Component {
   }
 
   handleRef = (g) => {
+    if (this._debugLoggingEnabled) {
+      console.log('[StackGrid] StackGrid::handleRef - Received GridInline instance:', g);
+    }
     this.grid = g;
     if (typeof this.props.gridRef === 'function') {
+      if (this._debugLoggingEnabled) {
+        console.log('[StackGrid] StackGrid::handleRef - Calling this.props.gridRef (from MasonryGridComponent) with StackGrid instance (this).');
+      }
       this.props.gridRef(this);
     }
   };
