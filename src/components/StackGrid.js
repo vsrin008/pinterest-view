@@ -185,9 +185,14 @@ class GridInline extends Component {
     this.columnAssignments = null;
     this.updateLayout(this.props);
 
+    // Listen to scroll on its own container (for cases where it might be scrollable)
     this.containerRef.current?.addEventListener('scroll', this.handleScroll, { passive: true });
+    
+    // Crucially, listen to window scroll and resize events
+    window.addEventListener('scroll', this.handleScroll, { passive: true });
     window.addEventListener('resize', this.handleScroll, { passive: true });
-    this.handleScroll();
+    
+    this.handleScroll(); // Call once on mount to get initial position and layout
   }
 
   componentDidUpdate(prev) {
@@ -202,8 +207,12 @@ class GridInline extends Component {
   componentWillUnmount() {
     this.mounted = false;
     this.props.size?.unregisterRef?.(this);
+    
+    // Clean up all event listeners
     this.containerRef.current?.removeEventListener('scroll', this.handleScroll);
+    window.removeEventListener('scroll', this.handleScroll);
     window.removeEventListener('resize', this.handleScroll);
+    
     if (this.scrollRaf) cancelAnimationFrame(this.scrollRaf);
     if (this.layoutRaf) cancelAnimationFrame(this.layoutRaf);
     Object.values(this.imgLoad).forEach(l => l.off?.('always'));
@@ -225,8 +234,6 @@ class GridInline extends Component {
         this.setState({
           containerRect: rect,
           scrollTop
-        }, () => {
-          this.forceUpdate();
         });
       }
       this.scrollRaf = null;
@@ -407,53 +414,62 @@ class GridInline extends Component {
       rtl,
       virtualized,
     } = this.props;
-    const { rects, height, containerRect, scrollTop } = this.state;
-    const containerStyle = {
-      position: 'relative',
-      height,
+    const { rects, height, containerRect } = this.state;
+    const containerStyle = { 
+      position: 'relative', 
+      height, 
       overflow: 'visible',
-      ...style
+      ...style 
     };
     const validChildren = React.Children.toArray(children).filter(isValidElement);
     const buffer = 800;
     const actuallyVirtualized = virtualized;
-
-    // Calculate viewport boundaries in absolute coordinates
-    const viewportTop = scrollTop - buffer;
-    const viewportBottom = scrollTop + window.innerHeight + buffer;
-
-    console.log('Viewport Calculation:', {
-      scrollTop,
-      viewportTop,
-      viewportBottom,
-      windowHeight: window.innerHeight,
-      containerHeight: containerRect?.height
+    
+    // Get the grid container's current top position relative to the viewport
+    const gridContainerViewportTop = containerRect ? containerRect.top : 0;
+    
+    // Define the effective viewport for item visibility checks, relative to the browser window
+    const visibleThresholdTop = 0 - buffer; // 0 is the top of the browser viewport
+    const visibleThresholdBottom = (ExecutionEnvironment.canUseDOM ? window.innerHeight : 800) + buffer;
+    
+    console.log('New Viewport Calculation:', {
+      gridContainerViewportTop,
+      visibleThresholdTop,
+      visibleThresholdBottom,
+      windowInnerHeight: ExecutionEnvironment.canUseDOM ? window.innerHeight : 800
     });
-
+    
     const gridItems = validChildren.map((child, i) => {
       const rect = rects[i];
       if (!rect) return null;
-
-      if (actuallyVirtualized && containerRect) {
-        const itemTop = rect.top;
-        const itemBottom = itemTop + rect.height;
-
-        const isVisible = !(itemBottom < viewportTop || itemTop > viewportBottom);
-        console.log(`Item ${i} visibility:`, {
-          itemTop,
-          itemBottom,
-          viewportTop,
-          viewportBottom,
-          isVisible,
-          height: rect.height,
-          scrollTop
+      
+      let isVisible = true; // Default to visible if not virtualizing
+      
+      if (actuallyVirtualized) {
+        // Calculate the item's absolute position relative to the browser viewport
+        const itemAbsoluteViewportTop = gridContainerViewportTop + rect.top;
+        const itemAbsoluteViewportBottom = itemAbsoluteViewportTop + rect.height;
+        
+        // The new visibility check
+        isVisible = !(itemAbsoluteViewportBottom < visibleThresholdTop || itemAbsoluteViewportTop > visibleThresholdBottom);
+        
+        console.log(`Item ${i} visibility (new logic):`, {
+          itemKey: child.key,
+          itemRectTop: rect.top,
+          itemRectHeight: rect.height,
+          gridContainerViewportTop,
+          itemAbsoluteViewportTop,
+          itemAbsoluteViewportBottom,
+          visibleThresholdTop,
+          visibleThresholdBottom,
+          isVisible
         });
-
+        
         if (!isVisible) {
-          return null;
+          return null; // Don't render if not visible
         }
       }
-
+      
       return (
         <GridItem
           key={child.key}
@@ -469,7 +485,7 @@ class GridInline extends Component {
         </GridItem>
       );
     });
-
+    
     return (
       <ElementType
         data-testid="stack-grid-container"
