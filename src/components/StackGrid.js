@@ -155,6 +155,8 @@ class GridInline extends Component {
     virtualized: false,
   };
 
+  _debugLoggingEnabled = true; // Set to true to enable logs, false to disable
+
   constructor(props) {
     super(props);
     this.containerRef = React.createRef();
@@ -167,7 +169,6 @@ class GridInline extends Component {
     this.columnAssignments = null;
     this.lastChildrenKeys = [];
     this.initialLayoutDone = false;
-    // track previous maxCol so we can invalidate assignments when it changes
     this._prevMaxCol = null;
     this.state = {
       ...this.doLayout(props),
@@ -223,17 +224,17 @@ class GridInline extends Component {
     this.scrollRaf = requestAnimationFrame(() => {
       if (this.mounted && this.containerRef.current) {
         const rect = this.containerRef.current.getBoundingClientRect();
-        const scrollTop = this.containerRef.current?.scrollTop ?? 0;
-        console.log('Scroll Update:', {
-          scrollTop,
-          containerHeight: rect.height,
-          windowHeight: window.innerHeight,
-          containerTop: rect.top,
-          containerBottom: rect.bottom
-        });
+        const currentScrollTop = this.containerRef.current?.scrollTop ?? 0;
+
+        if (this._debugLoggingEnabled) {
+          console.log(
+            `[StackGrid DEBUG] GridInline::handleScroll - Container Top: ${rect.top.toFixed(1)}px, Viewport H: ${window.innerHeight}px`
+          );
+        }
+
         this.setState({
           containerRect: rect,
-          scrollTop
+          scrollTop: currentScrollTop,
         });
       }
       this.scrollRaf = null;
@@ -269,12 +270,15 @@ class GridInline extends Component {
     } = props;
     const w = size?.width ?? 800;
     const arr = React.Children.toArray(children).filter(isValidElement);
-    // force at least one column
     const [rawMaxCol, colW] = getColumnLengthAndWidth(w, columnWidth, gutterWidth);
     const maxCol = Math.max(1, rawMaxCol);
 
+    if (this._debugLoggingEnabled) {
+      console.groupCollapsed('[StackGrid DEBUG] GridInline::doLayoutForClient - Details');
+      console.log('Input Props:', props);
+      console.log('Calculated Max Columns:', maxCol, 'Column Width:', colW.toFixed(1));
+    }
 
-    // 🔥 Invalidate previous columnAssignments when the number of columns changes
     if (this._prevMaxCol !== maxCol) {
       this._prevMaxCol = maxCol;
       this.columnAssignments = null;
@@ -298,14 +302,15 @@ class GridInline extends Component {
           temps[col] += h + gutterHeight;
           return { key: child.key, column: col, height: h };
         });
-      }
 
-      // Debug column assignments
-      console.log('Column Assignments:', this.columnAssignments.map(a => ({
-        key: a.key,
-        column: a.column,
-        height: a.height
-      })));
+        if (this._debugLoggingEnabled) {
+          console.log('New Column Assignments:', this.columnAssignments.map(a => ({
+            key: a.key,
+            column: a.column,
+            height: a.height.toFixed(1),
+          })));
+        }
+      }
 
       rects = arr.map((child, i) => {
         const a = this.columnAssignments[i];
@@ -314,20 +319,16 @@ class GridInline extends Component {
         const top = Math.round(colHeights[a.column]);
         colHeights[a.column] = top + Math.round(h) + gutterHeight;
 
-        // Debug item placement
-        console.log(`Item ${i} placement:`, {
-          column: a.column,
-          height: h,
-          top,
-          left,
-          columnHeight: colHeights[a.column]
-        });
+        if (this._debugLoggingEnabled) {
+          console.log(`Item ${i} (Key: ${child.key}) Placement: Top=${top.toFixed(1)}, Left=${left.toFixed(1)}, H=${h.toFixed(1)}, W=${colW.toFixed(1)}, ColH=${colHeights[a.column].toFixed(1)}`);
+        }
 
         return { top, left, width: colW, height: h };
       });
 
-      // Debug final column heights
-      console.log('Final Column Heights:', colHeights);
+      if (this._debugLoggingEnabled) {
+        console.log('Final Calculated Column Heights:', colHeights.map(h => h.toFixed(1)));
+      }
     } else {
       rects = arr.map((_, i) => ({ top: 0, left: 0, width: 0, height: 0 }));
     }
@@ -340,6 +341,11 @@ class GridInline extends Component {
       left: Math.round(o.left + offset),
       top: Math.round(o.top),
     }));
+
+    if (this._debugLoggingEnabled) {
+      console.log('Total Calculated Grid Height (totalH):', totalH.toFixed(1));
+      console.groupEnd();
+    }
 
     return { rects: final, actualWidth: totalW, height: totalH, columnWidth: colW };
   };
@@ -395,6 +401,9 @@ class GridInline extends Component {
 
   handleHeightChange = (key, h) => {
     if (this.heightCache[key] !== h) {
+      if (this._debugLoggingEnabled) {
+        console.log(`[StackGrid DEBUG] GridInline::handleHeightChange - Item Key: ${key}, New Height: ${h.toFixed(1)}`);
+      }
       this.heightCache[key] = h;
       if (this.columnAssignments) {
         const as = this.columnAssignments.find(a => a.key === key);
@@ -415,61 +424,62 @@ class GridInline extends Component {
       virtualized,
     } = this.props;
     const { rects, height, containerRect } = this.state;
-    const containerStyle = { 
-      position: 'relative', 
-      height, 
+    const containerStyle = {
+      position: 'relative',
+      height,
       overflow: 'visible',
-      ...style 
+      ...style,
     };
     const validChildren = React.Children.toArray(children).filter(isValidElement);
     const buffer = 800;
     const actuallyVirtualized = virtualized;
-    
-    // Get the grid container's current top position relative to the viewport
+
     const gridContainerViewportTop = containerRect ? containerRect.top : 0;
-    
-    // Define the effective viewport for item visibility checks, relative to the browser window
-    const visibleThresholdTop = 0 - buffer; // 0 is the top of the browser viewport
+    const visibleThresholdTop = 0 - buffer;
     const visibleThresholdBottom = (ExecutionEnvironment.canUseDOM ? window.innerHeight : 800) + buffer;
-    
-    console.log('New Viewport Calculation:', {
-      gridContainerViewportTop,
-      visibleThresholdTop,
-      visibleThresholdBottom,
-      windowInnerHeight: ExecutionEnvironment.canUseDOM ? window.innerHeight : 800
-    });
-    
+
+    if (this._debugLoggingEnabled) {
+      console.groupCollapsed('[StackGrid DEBUG] GridInline::render - Viewport & Item Visibility Pass');
+      console.log('Viewport Calculation:', {
+        gridContainerViewportTop: gridContainerViewportTop.toFixed(1),
+        visibleThresholdTop,
+        visibleThresholdBottom,
+        windowInnerHeight: ExecutionEnvironment.canUseDOM ? window.innerHeight : 800,
+        currentGridHeightState: height.toFixed(1),
+      });
+    }
+
+    let renderedItemCount = 0;
+    let virtualizedItemCount = 0;
+
     const gridItems = validChildren.map((child, i) => {
       const rect = rects[i];
       if (!rect) return null;
-      
-      let isVisible = true; // Default to visible if not virtualizing
-      
+
+      let isVisible = true;
       if (actuallyVirtualized) {
-        // Calculate the item's absolute position relative to the browser viewport
         const itemAbsoluteViewportTop = gridContainerViewportTop + rect.top;
         const itemAbsoluteViewportBottom = itemAbsoluteViewportTop + rect.height;
-        
-        // The new visibility check
         isVisible = !(itemAbsoluteViewportBottom < visibleThresholdTop || itemAbsoluteViewportTop > visibleThresholdBottom);
-        
-        console.log(`Item ${i} visibility (new logic):`, {
-          itemKey: child.key,
-          itemRectTop: rect.top,
-          itemRectHeight: rect.height,
-          gridContainerViewportTop,
-          itemAbsoluteViewportTop,
-          itemAbsoluteViewportBottom,
-          visibleThresholdTop,
-          visibleThresholdBottom,
-          isVisible
-        });
-        
+
+        if (this._debugLoggingEnabled) {
+          console.groupCollapsed(`Item ${i} (Key: ${child.key})`);
+          console.log({
+            itemRectTop: rect.top.toFixed(1),
+            itemRectHeight: rect.height.toFixed(1),
+            itemAbsoluteViewportTop: itemAbsoluteViewportTop.toFixed(1),
+            itemAbsoluteViewportBottom: itemAbsoluteViewportBottom.toFixed(1),
+            isVisible,
+          });
+          console.groupEnd();
+        }
+
         if (!isVisible) {
-          return null; // Don't render if not visible
+          virtualizedItemCount++;
+          return null;
         }
       }
-      
+      renderedItemCount++;
       return (
         <GridItem
           key={child.key}
@@ -485,7 +495,16 @@ class GridInline extends Component {
         </GridItem>
       );
     });
-    
+
+    if (this._debugLoggingEnabled) {
+      if (actuallyVirtualized) {
+        console.log(`Render Summary: ${renderedItemCount} items rendered, ${virtualizedItemCount} virtualized out (Total: ${validChildren.length}).`);
+      } else {
+        console.log(`Render Summary: ${renderedItemCount} items rendered (Virtualization OFF).`);
+      }
+      console.groupEnd();
+    }
+
     return (
       <ElementType
         data-testid="stack-grid-container"
