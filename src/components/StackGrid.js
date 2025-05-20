@@ -159,7 +159,7 @@ class GridInline extends Component {
     virtualized: false,
   };
 
-  _debugLoggingEnabled = true; // Set to true to enable logs, false to disable
+  _debugLoggingEnabled = true; // Set to true to enable focused debugging
 
   constructor(props) {
     super(props);
@@ -207,6 +207,13 @@ class GridInline extends Component {
   }
 
   componentDidUpdate(prev) {
+    if (this._debugLoggingEnabled) {
+      const childrenChanged = prev.children !== this.props.children;
+      const propsChanged = !shallowequal(prev, this.props);
+      if (childrenChanged || propsChanged) {
+        console.log(`[StackGrid] Update triggered: ${childrenChanged ? 'children changed' : ''}${childrenChanged && propsChanged ? ' and ' : ''}${propsChanged ? 'props changed' : ''}`);
+      }
+    }
     if (prev.children !== this.props.children) {
       this.columnAssignments = null;
     }
@@ -235,13 +242,6 @@ class GridInline extends Component {
       if (this.mounted && this.containerRef.current) {
         const rect = this.containerRef.current.getBoundingClientRect();
         const currentScrollTop = this.containerRef.current?.scrollTop ?? 0;
-
-        if (this._debugLoggingEnabled) {
-          console.log(
-            `[StackGrid] GridInline::handleScroll - Container Top: ${rect.top.toFixed(1)}px, Viewport H: ${window.innerHeight}px`
-          );
-        }
-
         this.setState({
           containerRect: rect,
           scrollTop: currentScrollTop,
@@ -283,10 +283,8 @@ class GridInline extends Component {
     const [rawMaxCol, colW] = getColumnLengthAndWidth(w, columnWidth, gutterWidth);
     const maxCol = Math.max(1, rawMaxCol);
 
-    if (this._debugLoggingEnabled) {
-      console.groupCollapsed('[StackGrid] GridInline::doLayoutForClient - Details');
-      console.log('Input Props:', props);
-      console.log('Calculated Max Columns:', maxCol, 'Column Width:', colW.toFixed(1));
+    if (this._debugLoggingEnabled && this._prevMaxCol !== maxCol) {
+      console.log(`[StackGrid] Layout: ${maxCol} columns, width=${w}, items=${arr.length}`);
     }
 
     if (this._prevMaxCol !== maxCol) {
@@ -312,14 +310,6 @@ class GridInline extends Component {
           temps[col] += h + gutterHeight;
           return { key: child.key, column: col, height: h };
         });
-
-        if (this._debugLoggingEnabled) {
-          console.log('New Column Assignments:', this.columnAssignments.map(a => ({
-            key: a.key,
-            column: a.column,
-            height: a.height.toFixed(1),
-          })));
-        }
       }
 
       rects = arr.map((child, i) => {
@@ -328,17 +318,8 @@ class GridInline extends Component {
         const left = Math.round(a.column * (colW + gutterWidth));
         const top = Math.round(colHeights[a.column]);
         colHeights[a.column] = top + Math.round(h) + gutterHeight;
-
-        if (this._debugLoggingEnabled) {
-          console.log(`[StackGrid] Item ${i} (Key: ${child.key}) Placement: Top=${top.toFixed(1)}, Left=${left.toFixed(1)}, H=${h.toFixed(1)}, W=${colW.toFixed(1)}, ColH=${colHeights[a.column].toFixed(1)}`);
-        }
-
         return { top, left, width: colW, height: h };
       });
-
-      if (this._debugLoggingEnabled) {
-        console.log('Final Calculated Column Heights:', colHeights.map(h => h.toFixed(1)));
-      }
     } else {
       rects = arr.map((_, i) => ({ top: 0, left: 0, width: 0, height: 0 }));
     }
@@ -352,9 +333,8 @@ class GridInline extends Component {
       top: Math.round(o.top),
     }));
 
-    if (this._debugLoggingEnabled) {
-      console.log('Total Calculated Grid Height (totalH):', totalH.toFixed(1));
-      console.groupEnd();
+    if (this._debugLoggingEnabled && this._prevMaxCol !== maxCol) {
+      console.log(`[StackGrid] Layout complete: height=${totalH.toFixed(1)}`);
     }
 
     return { rects: final, actualWidth: totalW, height: totalH, columnWidth: colW };
@@ -371,6 +351,9 @@ class GridInline extends Component {
   };
 
   updateLayout = (props) => {
+    if (this._debugLoggingEnabled) {
+      console.log('[StackGrid] updateLayout called');
+    }
     if (!this.mounted) return;
     const next = props || this.props;
     const nl = this.doLayout(next);
@@ -380,6 +363,9 @@ class GridInline extends Component {
   arraysEqual = (a, b) => a.length === b.length && a.every((v,i) => v === b[i]);
 
   forceLayoutUpdate = () => {
+    if (this._debugLoggingEnabled) {
+      console.log('[StackGrid] Forcing layout update');
+    }
     if (!this.layoutRaf) {
       this.layoutRaf = requestAnimationFrame(() => {
         if (this.mounted) this.updateLayout();
@@ -411,31 +397,25 @@ class GridInline extends Component {
 
   handleHeightChange = (key, h) => {
     const newHeight = Math.max(0, h); // Ensure height is not negative
+    const oldHeight = this.heightCache[key];
 
-    if (this._debugLoggingEnabled) {
-      console.log(`[StackGrid] GridInline::handleHeightChange - Received for Key: ${key}, New Height: ${newHeight.toFixed(1)}, Cached Height: ${this.heightCache[key]?.toFixed(1)}`);
+    // Only log if height actually changed
+    if (this._debugLoggingEnabled && oldHeight !== newHeight) {
+      console.log(`[StackGrid] Height changed for ${key}: ${oldHeight?.toFixed(1)} → ${newHeight.toFixed(1)}`);
     }
 
     // Scenario 1: Reported height is effectively zero for an item that's being/has been removed
     if (newHeight < 1 && !this.itemRefs[key]) {
-      if (this._debugLoggingEnabled) {
-        console.log(`[StackGrid] GridInline::handleHeightChange - Key: ${key} reported height ${newHeight.toFixed(1)} but itemRef is already cleared (likely unmounted/virtualized out). Ignoring this height update to prevent layout instability.`);
-      }
       return; // Exit early, do not process this zero height for layout
     }
 
     // Scenario 2: Reported height is effectively zero for an item that *should* be there
-    if (newHeight < 1 && this.itemRefs[key] && (this.heightCache[key] === undefined || this.heightCache[key] > 0)) {
-      if (this._debugLoggingEnabled) {
-        console.warn(`[StackGrid] GridInline::handleHeightChange - WARNING: Key: ${key} (itemRef exists) reported suspicious height: ${newHeight.toFixed(1)}. Previous cache: ${this.heightCache[key]?.toFixed(1)}. This might indicate an issue with the item's content or styling.`);
-      }
+    if (newHeight < 1 && this.itemRefs[key] && (oldHeight === undefined || oldHeight > 0)) {
+      console.warn(`[StackGrid] WARNING: ${key} reported suspicious height: ${newHeight.toFixed(1)}`);
     }
 
     // Proceed with height update only if it's a meaningful change or a new item
-    if (this.heightCache[key] !== newHeight) {
-      if (this._debugLoggingEnabled) {
-        console.log(`[StackGrid] GridInline::handleHeightChange - Updating height cache for Key: ${key} from ${this.heightCache[key]?.toFixed(1)} to ${newHeight.toFixed(1)} and forcing layout update.`);
-      }
+    if (oldHeight !== newHeight) {
       this.heightCache[key] = newHeight;
       // Update columnAssignments if it exists and item is found
       if (this.columnAssignments) {
@@ -445,8 +425,6 @@ class GridInline extends Component {
         }
       }
       this.forceLayoutUpdate();
-    } else if (this._debugLoggingEnabled) {
-      console.log(`[StackGrid] GridInline::handleHeightChange - Key: ${key}, New Height ${newHeight.toFixed(1)} matches cached height. No update needed.`);
     }
   };
 
@@ -475,17 +453,6 @@ class GridInline extends Component {
     const visibleThresholdTop = 0 - buffer;
     const visibleThresholdBottom = (ExecutionEnvironment.canUseDOM ? window.innerHeight : 800) + buffer;
 
-    if (this._debugLoggingEnabled) {
-      console.groupCollapsed('[StackGrid] GridInline::render - Viewport & Item Visibility Pass');
-      console.log('Viewport Calculation:', {
-        gridContainerViewportTop: gridContainerViewportTop.toFixed(1),
-        visibleThresholdTop,
-        visibleThresholdBottom,
-        windowInnerHeight: ExecutionEnvironment.canUseDOM ? window.innerHeight : 800,
-        currentGridHeightState: height.toFixed(1),
-      });
-    }
-
     let renderedItemCount = 0;
     let virtualizedItemCount = 0;
 
@@ -498,18 +465,6 @@ class GridInline extends Component {
         const itemAbsoluteViewportTop = gridContainerViewportTop + rect.top;
         const itemAbsoluteViewportBottom = itemAbsoluteViewportTop + rect.height;
         isVisible = !(itemAbsoluteViewportBottom < visibleThresholdTop || itemAbsoluteViewportTop > visibleThresholdBottom);
-
-        if (this._debugLoggingEnabled) {
-          console.groupCollapsed(`[StackGrid] Item ${i} (Key: ${child.key})`);
-          console.log({
-            itemRectTop: rect.top.toFixed(1),
-            itemRectHeight: rect.height.toFixed(1),
-            itemAbsoluteViewportTop: itemAbsoluteViewportTop.toFixed(1),
-            itemAbsoluteViewportBottom: itemAbsoluteViewportBottom.toFixed(1),
-            isVisible,
-          });
-          console.groupEnd();
-        }
 
         if (!isVisible) {
           virtualizedItemCount++;
@@ -533,15 +488,6 @@ class GridInline extends Component {
       );
     });
 
-    if (this._debugLoggingEnabled) {
-      if (actuallyVirtualized) {
-        console.log(`[StackGrid] Render Summary: ${renderedItemCount} items rendered, ${virtualizedItemCount} virtualized out (Total: ${validChildren.length}).`);
-      } else {
-        console.log(`[StackGrid] Render Summary: ${renderedItemCount} items rendered (Virtualization OFF).`);
-      }
-      console.groupEnd();
-    }
-
     return (
       <ElementType
         data-testid="stack-grid-container"
@@ -561,14 +507,8 @@ class StackGrid extends Component {
   }
 
   handleRef = (g) => {
-    if (this._debugLoggingEnabled) {
-      console.log('[StackGrid] StackGrid::handleRef - Received GridInline instance:', g);
-    }
     this.grid = g;
     if (typeof this.props.gridRef === 'function') {
-      if (this._debugLoggingEnabled) {
-        console.log('[StackGrid] StackGrid::handleRef - Calling this.props.gridRef (from MasonryGridComponent) with StackGrid instance (this).');
-      }
       this.props.gridRef(this);
     }
   };
