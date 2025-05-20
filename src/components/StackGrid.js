@@ -399,8 +399,8 @@ class GridInline extends Component {
     const newHeight = Math.max(0, h); // Ensure height is not negative
     const oldHeight = this.heightCache[key];
 
-    // Only log if height actually changed
-    if (this._debugLoggingEnabled && oldHeight !== newHeight) {
+    // Only log if height actually changed by more than 2px
+    if (this._debugLoggingEnabled && Math.abs(newHeight - oldHeight) > 2) {
       console.log(`[StackGrid] Height changed for ${key}: ${oldHeight?.toFixed(1)} → ${newHeight.toFixed(1)}`);
     }
 
@@ -414,8 +414,8 @@ class GridInline extends Component {
       console.warn(`[StackGrid] WARNING: ${key} reported suspicious height: ${newHeight.toFixed(1)}`);
     }
 
-    // Proceed with height update only if it's a meaningful change or a new item
-    if (oldHeight !== newHeight) {
+    // Only update if height change is significant (more than 2px)
+    if (Math.abs(newHeight - oldHeight) > 2) {
       this.heightCache[key] = newHeight;
       // Update columnAssignments if it exists and item is found
       if (this.columnAssignments) {
