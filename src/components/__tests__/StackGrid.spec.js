@@ -94,16 +94,24 @@ describe('StackGrid', () => {
 
   it('calls onLayout callback when layout updates', () => {
     const onLayout = jest.fn();
+    const TestComponent = () => (
+      <div style={{ height: '200px', width: '100%', background: 'red' }}>Test</div>
+    );
+
     render(
       <StackGrid
         columnWidth={100}
-        gutterWidth={10}
-        gutterHeight={10}
         onLayout={onLayout}
+        enableDebugLogs={true}
       >
-        <div>Test Content</div>
+        <TestComponent />
       </StackGrid>
     );
-    expect(onLayout).toHaveBeenCalled();
+
+    // Wait for initial layout to complete
+    return new Promise(resolve => setTimeout(resolve, 100))
+      .then(() => {
+        expect(onLayout).toHaveBeenCalled();
+      });
   });
 });
