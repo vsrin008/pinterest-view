@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { render, act } from '@testing-library/react';
 import StackGrid, { GridInline } from '../StackGrid';
 
 const mockRect = {
@@ -19,20 +19,29 @@ const mockSize = {
 // Mock react-sizeme
 jest.mock('react-sizeme', () => ({
   __esModule: true,
-  default: () => (Component) =>
-    // eslint-disable-next-line react/prop-types
-    function SizeMeWrapper({ gridRef, ...rest }) {
-      if (gridRef) {
-        mockSize.registerRef(gridRef);
-      }
-      return <Component {...rest} size={mockSize} />;
-    },
+  default: () => (Component) => function SizeMeWrapper({ gridRef, ...rest }) {
+    if (gridRef) {
+      mockSize.registerRef(gridRef);
+    }
+    return <Component {...rest} size={mockSize} />;
+  },
 }));
+
+// Mock requestAnimationFrame
+const mockRAF = (callback) => setTimeout(callback, 0);
+const mockCAF = (id) => clearTimeout(id);
 
 describe('StackGrid', () => {
   beforeEach(() => {
     mockSize.registerRef.mockClear();
     mockSize.unregisterRef.mockClear();
+    jest.useFakeTimers();
+    global.requestAnimationFrame = mockRAF;
+    global.cancelAnimationFrame = mockCAF;
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it('renders children correctly', () => {
@@ -40,7 +49,7 @@ describe('StackGrid', () => {
       <StackGrid columnWidth={100}>
         <div data-testid="child1">Item 1</div>
         <div data-testid="child2">Item 2</div>
-      </StackGrid>
+      </StackGrid>,
     );
     expect(container.firstChild).toBeInTheDocument();
   });
@@ -49,7 +58,7 @@ describe('StackGrid', () => {
     const { container } = render(
       <StackGrid columnWidth={100} gutterWidth={10} gutterHeight={10}>
         <div>Test Content</div>
-      </StackGrid>
+      </StackGrid>,
     );
     const gridContainer = container.querySelector('[style*="position: relative"]');
     expect(gridContainer).toBeInTheDocument();
@@ -72,7 +81,7 @@ describe('StackGrid', () => {
         gutterHeight={5}
       >
         <div>Test Content</div>
-      </GridInline>
+      </GridInline>,
     );
     expect(container.firstChild).toBeInTheDocument();
     expect(mockSize.registerRef).toHaveBeenCalled();
@@ -87,31 +96,42 @@ describe('StackGrid', () => {
         monitorImagesLoaded={false}
       >
         <div>Test Content</div>
-      </StackGrid>
+      </StackGrid>,
     );
     expect(container.firstChild).toBeInTheDocument();
   });
 
-  it('calls onLayout callback when layout updates', () => {
+  it('calls onLayout callback when layout updates', async () => {
     const onLayout = jest.fn();
-    const TestComponent = () => (
-      <div style={{ height: '200px', width: '100%', background: 'red' }}>Test</div>
-    );
+    function TestComponent() {
+      return (
+        <div style={{ height: '200px', width: '100%', background: 'red' }}>Test</div>
+      );
+    }
 
-    render(
-      <StackGrid
-        columnWidth={100}
-        onLayout={onLayout}
-        enableDebugLogs={true}
-      >
-        <TestComponent />
-      </StackGrid>
-    );
+    await act(async () => {
+      render(
+        <StackGrid
+          columnWidth={100}
+          onLayout={onLayout}
+          enableDebugLogs
+        >
+          <TestComponent />
+        </StackGrid>,
+      );
+    });
 
     // Wait for initial layout to complete
-    return new Promise(resolve => setTimeout(resolve, 100))
-      .then(() => {
-        expect(onLayout).toHaveBeenCalled();
-      });
+    await act(async () => {
+      // Flush requestAnimationFrame
+      jest.runAllTimers();
+      // Allow any microtasks to run
+      await Promise.resolve();
+    });
+
+    expect(onLayout).toHaveBeenCalled();
+    expect(onLayout).toHaveBeenCalledWith(expect.objectContaining({
+      height: expect.any(Number),
+    }));
   });
 });
