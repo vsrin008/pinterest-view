@@ -139,6 +139,7 @@ class GridInline extends Component {
     gutterHeight: PropTypes.number,
     horizontal: PropTypes.bool,
     virtualized: PropTypes.bool,
+    explicitWidth: PropTypes.number,
   };
 
   static defaultProps = {
@@ -338,8 +339,14 @@ class GridInline extends Component {
     const {
       size, children, columnWidth, gutterWidth, gutterHeight,
       horizontal,
+      explicitWidth,
     } = props;
-    const w = size?.width ?? 800;
+
+    // Prioritize explicitWidth if provided and valid, otherwise use size.width
+    const w = (typeof explicitWidth === 'number' && explicitWidth > 0) 
+                ? explicitWidth 
+                : (size?.width ?? 800); // 'w' is now determined by this logic
+
     const arr = React.Children.toArray(children).filter(isValidElement);
     const [rawMaxCol, colW] = getColumnLengthAndWidth(w, columnWidth, gutterWidth);
     const maxCol = Math.max(1, rawMaxCol);
