@@ -214,10 +214,38 @@ class GridInline extends Component {
         console.log(`[StackGrid] Update triggered: ${childrenChanged ? 'children changed' : ''}${childrenChanged && propsChanged ? ' and ' : ''}${propsChanged ? 'props changed' : ''}`);
       }
     }
-    if (prev.children !== this.props.children) {
+
+    // Only update if children actually changed (not just reference)
+    const prevChildren = React.Children.toArray(prev.children).filter(isValidElement);
+    const currentChildren = React.Children.toArray(this.props.children).filter(isValidElement);
+    const childrenActuallyChanged = !this.arraysEqual(
+      prevChildren.map(c => c.key),
+      currentChildren.map(c => c.key)
+    );
+
+    // Only update if relevant props changed
+    const relevantPropsChanged = !shallowequal(
+      {
+        columnWidth: prev.columnWidth,
+        gutterWidth: prev.gutterWidth,
+        gutterHeight: prev.gutterHeight,
+        horizontal: prev.horizontal,
+        rtl: prev.rtl,
+      },
+      {
+        columnWidth: this.props.columnWidth,
+        gutterWidth: this.props.gutterWidth,
+        gutterHeight: this.props.gutterHeight,
+        horizontal: this.props.horizontal,
+        rtl: this.props.rtl,
+      }
+    );
+
+    if (childrenActuallyChanged) {
       this.columnAssignments = null;
     }
-    if (!shallowequal(prev, this.props)) {
+
+    if (childrenActuallyChanged || relevantPropsChanged) {
       this.updateLayout(this.props);
     }
   }
@@ -414,8 +442,8 @@ class GridInline extends Component {
       console.warn(`[StackGrid] WARNING: ${key} reported suspicious height: ${newHeight.toFixed(1)}`);
     }
 
-    // Only update if height change is significant (more than 2px)
-    if (Math.abs(newHeight - oldHeight) > 2) {
+    // Only update if height change is significant (more than 2px) AND the item is still mounted
+    if (Math.abs(newHeight - oldHeight) > 2 && this.mounted && this.itemRefs[key]) {
       this.heightCache[key] = newHeight;
       // Update columnAssignments if it exists and item is found
       if (this.columnAssignments) {
