@@ -186,24 +186,35 @@ class GridInline extends Component {
   componentDidMount() {
     this.mounted = true;
     this.props.size?.registerRef?.(this);
+
+    // Call the gridRef prop (which is StackGrid.handleRef) with GridInline instance.
     if (typeof this.props.gridRef === 'function') {
       if (this._debugLoggingEnabled) {
-        console.log('[StackGrid] GridInline::componentDidMount - Calling this.props.gridRef (which is StackGrid.handleRef) with GridInline instance.');
+        console.log('[StackGrid] GridInline::componentDidMount - Calling this.props.gridRef with GridInline instance.');
       }
-      this.props.gridRef(this);
+      this.props.gridRef(this); // 'this' is the GridInline instance
     }
+
     this.initialLayoutDone = false;
     this.columnAssignments = null;
-    this.updateLayout(this.props);
 
-    // Listen to scroll on its own container (for cases where it might be scrollable)
+    // Listen to scroll on its own container
     this.containerRef.current?.addEventListener('scroll', this.handleScroll, { passive: true });
     
-    // Crucially, listen to window scroll and resize events
+    // Listen to window scroll and resize events
     window.addEventListener('scroll', this.handleScroll, { passive: true });
     window.addEventListener('resize', this.handleScroll, { passive: true });
     
-    this.handleScroll(); // Call once on mount to get initial position and layout
+    // Defer initial layout calculation and GBCR to allow browser to settle
+    requestAnimationFrame(() => {
+      if (this.mounted) { // Check if still mounted
+        if (this._debugLoggingEnabled) {
+          console.log('[StackGrid] GridInline::componentDidMount - RAF: Calling updateLayout and then handleScroll for initial setup.');
+        }
+        this.updateLayout(this.props); // Calculate layout and get grid height
+        this.handleScroll();         // Update containerRect based on current DOM
+      }
+    });
   }
 
   componentDidUpdate(prev) {
@@ -268,12 +279,34 @@ class GridInline extends Component {
     if (this.scrollRaf) return;
     this.scrollRaf = requestAnimationFrame(() => {
       if (this.mounted && this.containerRef.current) {
-        const rect = this.containerRef.current.getBoundingClientRect();
-        const currentScrollTop = this.containerRef.current?.scrollTop ?? 0;
-        this.setState({
-          containerRect: rect,
-          scrollTop: currentScrollTop,
-        });
+        const newRect = this.containerRef.current.getBoundingClientRect();
+        const newScrollTop = this.containerRef.current?.scrollTop ?? 0;
+        const currentContainerRect = this.state.containerRect;
+        const currentInternalScrollTop = this.state.scrollTop;
+
+        // Check if there's a meaningful change
+        const rectChanged = !currentContainerRect ||
+          Math.abs(currentContainerRect.top - newRect.top) > 0.5 || // Threshold for change
+          Math.abs(currentContainerRect.height - newRect.height) > 0.5 ||
+          Math.abs(currentContainerRect.left - newRect.left) > 0.5 || // Optional: if left/width also matter
+          Math.abs(currentContainerRect.width - newRect.width) > 0.5;
+
+        const scrollTopChanged = Math.abs(currentInternalScrollTop - newScrollTop) > 0.5;
+
+        if (rectChanged || scrollTopChanged) {
+          if (this._debugLoggingEnabled) {
+            console.log(
+              `[StackGrid] GridInline::handleScroll - Updating state. Container Top: ${newRect.top.toFixed(1)}px (Changed: ${rectChanged}), ScrollTop: ${newScrollTop.toFixed(1)} (Changed: ${scrollTopChanged})`
+            );
+          }
+          this.setState({
+            containerRect: newRect,
+            scrollTop: newScrollTop,
+          });
+        } else if (this._debugLoggingEnabled) {
+          // This log can be very frequent, consider removing or making it less verbose
+          // console.log('[StackGrid] GridInline::handleScroll - No significant change in rect or scrollTop. Skipping setState.');
+        }
       }
       this.scrollRaf = null;
     });
@@ -425,27 +458,48 @@ class GridInline extends Component {
 
   handleHeightChange = (key, h) => {
     const newHeight = Math.max(0, h); // Ensure height is not negative
-    const oldHeight = this.heightCache[key];
+    const oldCachedHeight = this.heightCache[key]; // Get it before potential update
 
-    // Only log if height actually changed by more than 2px
-    if (this._debugLoggingEnabled && Math.abs(newHeight - oldHeight) > 2) {
-      console.log(`[StackGrid] Height changed for ${key}: ${oldHeight?.toFixed(1)} → ${newHeight.toFixed(1)}`);
+    if (this._debugLoggingEnabled) {
+      console.log(`[StackGrid] GridInline::handleHeightChange - Received for Key: ${key}, New Height: ${newHeight.toFixed(1)}, Cached Height: ${oldCachedHeight?.toFixed(1)}`);
     }
 
     // Scenario 1: Reported height is effectively zero for an item that's being/has been removed
     if (newHeight < 1 && !this.itemRefs[key]) {
-      return; // Exit early, do not process this zero height for layout
+      if (this._debugLoggingEnabled) {
+        console.log(`[StackGrid] GridInline::handleHeightChange - Key: ${key} reported height ${newHeight.toFixed(1)} but itemRef is already cleared. IGNORING.`);
+      }
+      return; 
     }
 
     // Scenario 2: Reported height is effectively zero for an item that *should* be there
-    if (newHeight < 1 && this.itemRefs[key] && (oldHeight === undefined || oldHeight > 0)) {
-      console.warn(`[StackGrid] WARNING: ${key} reported suspicious height: ${newHeight.toFixed(1)}`);
+    if (newHeight < 1 && this.itemRefs[key] && (oldCachedHeight === undefined || oldCachedHeight > 0)) {
+      if (this._debugLoggingEnabled) {
+        console.warn(`[StackGrid] GridInline::handleHeightChange - WARNING: Key: ${key} (itemRef exists) reported suspicious height: ${newHeight.toFixed(1)}. Previous cache: ${oldCachedHeight?.toFixed(1)}. This item's content might be unstable. SKIPPING layout update for this zero height.`);
+      }
+      // If it had a valid height before, don't let a transient 0 cause a full reflow.
+      // The ResizeObserver might report a valid height again shortly.
+      if (oldCachedHeight !== undefined && oldCachedHeight > 0) {
+        return;
+      }
     }
 
-    // Only update if height change is significant (more than 2px) AND the item is still mounted
-    if (Math.abs(newHeight - oldHeight) > 2 && this.mounted && this.itemRefs[key]) {
+    // Only update and force layout if the height has meaningfully changed
+    // AND the newHeight is valid (>=1) OR it's an item whose height was not previously cached
+    const heightDifference = Math.abs(newHeight - (oldCachedHeight || 0));
+    const isSignificantChange = heightDifference > 2; // Threshold for significant change
+
+    if (isSignificantChange && this.mounted && this.itemRefs[key]) {
+      if (newHeight < 1 && this.itemRefs[key] && oldCachedHeight === undefined) {
+        if (this._debugLoggingEnabled) {
+          console.warn(`[StackGrid] GridInline::handleHeightChange - WARNING: Key: ${key} (NEW item, itemRef exists) reported initial suspicious height: ${newHeight.toFixed(1)}. Caching, but this may cause issues.`);
+        }
+      }
+
+      if (this._debugLoggingEnabled) {
+        console.log(`[StackGrid] GridInline::handleHeightChange - Updating height cache for Key: ${key} from ${oldCachedHeight?.toFixed(1)} to ${newHeight.toFixed(1)} and forcing layout update.`);
+      }
       this.heightCache[key] = newHeight;
-      // Update columnAssignments if it exists and item is found
       if (this.columnAssignments) {
         const assignment = this.columnAssignments.find(a => a.key === key);
         if (assignment) {
@@ -453,6 +507,8 @@ class GridInline extends Component {
         }
       }
       this.forceLayoutUpdate();
+    } else if (this._debugLoggingEnabled && this.itemRefs[key]) {
+      console.log(`[StackGrid] GridInline::handleHeightChange - Key: ${key}, New Height ${newHeight.toFixed(1)} vs Cached ${oldCachedHeight?.toFixed(1)}. No significant update needed or item already removed.`);
     }
   };
 
@@ -530,60 +586,484 @@ class GridInline extends Component {
 }
 
 class StackGrid extends Component {
+  static propTypes = {
+    children: PropTypes.node,
+    className: PropTypes.string,
+    style: PropTypes.object,
+    gridRef: PropTypes.func,
+    component: PropTypes.string,
+    itemComponent: PropTypes.string,
+    columnWidth: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+    gutterWidth: PropTypes.number,
+    gutterHeight: PropTypes.number,
+    monitorImagesLoaded: PropTypes.bool,
+    enableSSR: PropTypes.bool,
+    onLayout: PropTypes.func,
+    horizontal: PropTypes.bool,
+    rtl: PropTypes.bool,
+    virtualized: PropTypes.bool,
+    enableDebugLogs: PropTypes.bool,
+  };
+
+  static defaultProps = {
+    style: {},
+    gridRef: null,
+    component: 'div',
+    itemComponent: 'span',
+    columnWidth: 150,
+    gutterWidth: 5,
+    gutterHeight: 5,
+    monitorImagesLoaded: false,
+    enableSSR: false,
+    onLayout: null,
+    horizontal: false,
+    rtl: false,
+    virtualized: false,
+    enableDebugLogs: false,
+  };
+
+  constructor(props) {
+    super(props);
+    this.grid = null;
+    this._debugLoggingEnabled = props.enableDebugLogs;
+    this.containerRef = React.createRef();
+    this.itemRefs = {};
+    this.imgLoad = {};
+    this.mounted = false;
+    this.heightCache = {};
+    this.scrollRaf = null;
+    this.layoutRaf = null;
+    this.columnAssignments = null;
+    this.lastChildrenKeys = [];
+    this.initialLayoutDone = false;
+    this._prevMaxCol = null;
+    this.state = {
+      ...this.doLayout(props),
+      containerRect: {
+        top: 0,
+        bottom: ExecutionEnvironment.canUseDOM ? window.innerHeight : 800,
+      },
+    };
+  }
+
+  componentDidMount() {
+    this.mounted = true;
+    this.props.size?.registerRef?.(this);
+
+    // Call the gridRef prop (which is StackGrid.handleRef) with GridInline instance.
+    if (typeof this.props.gridRef === 'function') {
+      if (this._debugLoggingEnabled) {
+        console.log('[StackGrid] StackGrid::componentDidMount - Calling this.props.gridRef with StackGrid instance.');
+      }
+      this.props.gridRef(this);
+    }
+
+    this.initialLayoutDone = false;
+    this.columnAssignments = null;
+
+    // Listen to scroll on its own container
+    this.containerRef.current?.addEventListener('scroll', this.handleScroll, { passive: true });
+    
+    // Listen to window scroll and resize events
+    window.addEventListener('scroll', this.handleScroll, { passive: true });
+    window.addEventListener('resize', this.handleScroll, { passive: true });
+    
+    // Defer initial layout calculation and GBCR to allow browser to settle
+    requestAnimationFrame(() => {
+      if (this.mounted) { // Check if still mounted
+        if (this._debugLoggingEnabled) {
+          console.log('[StackGrid] StackGrid::componentDidMount - RAF: Calling updateLayout and then handleScroll for initial setup.');
+        }
+        this.updateLayout(this.props); // Calculate layout and get grid height
+        this.handleScroll();         // Update containerRect based on current DOM
+      }
+    });
+  }
+
+  componentDidUpdate(prev) {
+    if (this._debugLoggingEnabled) {
+      const childrenChanged = prev.children !== this.props.children;
+      const propsChanged = !shallowequal(prev, this.props);
+      if (childrenChanged || propsChanged) {
+        console.log(`[StackGrid] Update triggered: ${childrenChanged ? 'children changed' : ''}${childrenChanged && propsChanged ? ' and ' : ''}${propsChanged ? 'props changed' : ''}`);
+      }
+    }
+
+    // Only update if children actually changed (not just reference)
+    const prevChildren = React.Children.toArray(prev.children).filter(isValidElement);
+    const currentChildren = React.Children.toArray(this.props.children).filter(isValidElement);
+    const childrenActuallyChanged = !this.arraysEqual(
+      prevChildren.map(c => c.key),
+      currentChildren.map(c => c.key)
+    );
+
+    // Only update if relevant props changed
+    const relevantPropsChanged = !shallowequal(
+      {
+        columnWidth: prev.columnWidth,
+        gutterWidth: prev.gutterWidth,
+        gutterHeight: prev.gutterHeight,
+        horizontal: prev.horizontal,
+        rtl: prev.rtl,
+      },
+      {
+        columnWidth: this.props.columnWidth,
+        gutterWidth: this.props.gutterWidth,
+        gutterHeight: this.props.gutterHeight,
+        horizontal: this.props.horizontal,
+        rtl: this.props.rtl,
+      }
+    );
+
+    if (childrenActuallyChanged) {
+      this.columnAssignments = null;
+    }
+
+    if (childrenActuallyChanged || relevantPropsChanged) {
+      this.updateLayout(this.props);
+    }
+  }
+
+  componentWillUnmount() {
+    this.mounted = false;
+    this.props.size?.unregisterRef?.(this);
+    
+    // Clean up all event listeners
+    this.containerRef.current?.removeEventListener('scroll', this.handleScroll);
+    window.removeEventListener('scroll', this.handleScroll);
+    window.removeEventListener('resize', this.handleScroll);
+    
+    if (this.scrollRaf) cancelAnimationFrame(this.scrollRaf);
+    if (this.layoutRaf) cancelAnimationFrame(this.layoutRaf);
+    Object.values(this.imgLoad).forEach(l => l.off?.('always'));
+  }
+
+  handleScroll = () => {
+    if (this.scrollRaf) return;
+    this.scrollRaf = requestAnimationFrame(() => {
+      if (this.mounted && this.containerRef.current) {
+        const newRect = this.containerRef.current.getBoundingClientRect();
+        const newScrollTop = this.containerRef.current?.scrollTop ?? 0;
+        const currentContainerRect = this.state.containerRect;
+        const currentInternalScrollTop = this.state.scrollTop;
+
+        // Check if there's a meaningful change
+        const rectChanged = !currentContainerRect ||
+          Math.abs(currentContainerRect.top - newRect.top) > 0.5 || // Threshold for change
+          Math.abs(currentContainerRect.height - newRect.height) > 0.5 ||
+          Math.abs(currentContainerRect.left - newRect.left) > 0.5 || // Optional: if left/width also matter
+          Math.abs(currentContainerRect.width - newRect.width) > 0.5;
+
+        const scrollTopChanged = Math.abs(currentInternalScrollTop - newScrollTop) > 0.5;
+
+        if (rectChanged || scrollTopChanged) {
+          if (this._debugLoggingEnabled) {
+            console.log(
+              `[StackGrid] StackGrid::handleScroll - Updating state. Container Top: ${newRect.top.toFixed(1)}px (Changed: ${rectChanged}), ScrollTop: ${newScrollTop.toFixed(1)} (Changed: ${scrollTopChanged})`
+            );
+          }
+          this.setState({
+            containerRect: newRect,
+            scrollTop: newScrollTop,
+          });
+        } else if (this._debugLoggingEnabled) {
+          // This log can be very frequent, consider removing or making it less verbose
+          // console.log('[StackGrid] StackGrid::handleScroll - No significant change in rect or scrollTop. Skipping setState.');
+        }
+      }
+      this.scrollRaf = null;
+    });
+  };
+
+  setStateIfNeeded = (st, cb) => {
+    if (this.mounted) this.setState(st, cb);
+  };
+
+  getItemHeight = (key) => {
+    if (this.heightCache[key]) return this.heightCache[key];
+    const el = this.itemRefs[key];
+    if (el) {
+      const h = Math.max(el.offsetHeight, el.scrollHeight, el.clientHeight, 100);
+      this.heightCache[key] = h;
+      return h;
+    }
+    return 100;
+  };
+
+  doLayout = (props) => {
+    if (!ExecutionEnvironment.canUseDOM) return this.doLayoutForSSR(props);
+    const res = this.doLayoutForClient(props);
+    this.mounted && typeof this.props.onLayout === 'function' && this.props.onLayout({ height: res.height });
+    return res;
+  };
+
+  doLayoutForClient = (props) => {
+    const {
+      size, children, columnWidth, gutterWidth, gutterHeight,
+      horizontal,
+    } = props;
+    const w = size?.width ?? 800;
+    const arr = React.Children.toArray(children).filter(isValidElement);
+    const [rawMaxCol, colW] = getColumnLengthAndWidth(w, columnWidth, gutterWidth);
+    const maxCol = Math.max(1, rawMaxCol);
+
+    if (this._debugLoggingEnabled && this._prevMaxCol !== maxCol) {
+      console.log(`[StackGrid] Layout: ${maxCol} columns, width=${w}, items=${arr.length}`);
+    }
+
+    if (this._prevMaxCol !== maxCol) {
+      this._prevMaxCol = maxCol;
+      this.columnAssignments = null;
+    }
+
+    const colHeights = createArray(0, maxCol);
+    let rects;
+
+    if (!horizontal) {
+      const keys = arr.map(c => c.key);
+      if (!this.arraysEqual(keys, this.lastChildrenKeys)) {
+        this.columnAssignments = null;
+        this.initialLayoutDone = false;
+        this.lastChildrenKeys = keys;
+      }
+      if (!this.columnAssignments) {
+        const temps = createArray(0, maxCol);
+        this.columnAssignments = arr.map(child => {
+          const col = temps.indexOf(Math.min(...temps));
+          const h = this.heightCache[child.key] ?? this.getItemHeight(child.key);
+          temps[col] += h + gutterHeight;
+          return { key: child.key, column: col, height: h };
+        });
+      }
+
+      rects = arr.map((child, i) => {
+        const a = this.columnAssignments[i];
+        const h = this.heightCache[child.key] ?? this.getItemHeight(child.key);
+        const left = Math.round(a.column * (colW + gutterWidth));
+        const top = Math.round(colHeights[a.column]);
+        colHeights[a.column] = top + Math.round(h) + gutterHeight;
+        return { top, left, width: colW, height: h };
+      });
+    } else {
+      rects = arr.map((_, i) => ({ top: 0, left: 0, width: 0, height: 0 }));
+    }
+
+    const totalW = maxCol * colW + (maxCol - 1) * gutterWidth;
+    const totalH = Math.max(...colHeights) - gutterHeight;
+    const offset = Math.max(0, (w - totalW) / 2);
+    const final = rects.map(o => ({
+      ...o,
+      left: Math.round(o.left + offset),
+      top: Math.round(o.top),
+    }));
+
+    if (this._debugLoggingEnabled && this._prevMaxCol !== maxCol) {
+      console.log(`[StackGrid] Layout complete: height=${totalH.toFixed(1)}`);
+    }
+
+    return { rects: final, actualWidth: totalW, height: totalH, columnWidth: colW };
+  };
+
+  doLayoutForSSR = (props) => {
+    const arr = React.Children.toArray(props.children);
+    return {
+      rects: arr.map(() => ({ top: 0, left: 0, width: 0, height: 0 })),
+      actualWidth: 0,
+      height: 0,
+      columnWidth: 0,
+    };
+  };
+
+  updateLayout = (props) => {
+    if (this._debugLoggingEnabled) {
+      console.log('[StackGrid] updateLayout called');
+    }
+    if (!this.mounted) return;
+    const next = props || this.props;
+    const nl = this.doLayout(next);
+    this.setStateIfNeeded(nl);
+  };
+
+  arraysEqual = (a, b) => a.length === b.length && a.every((v,i) => v === b[i]);
+
+  forceLayoutUpdate = () => {
+    if (this._debugLoggingEnabled) {
+      console.log('[StackGrid] Forcing layout update');
+    }
+    if (!this.layoutRaf) {
+      this.layoutRaf = requestAnimationFrame(() => {
+        if (this.mounted) this.updateLayout();
+        this.layoutRaf = null;
+      });
+    }
+  };
+
+  handleItemRef = (key, node) => {
+    if (node) {
+      if (this.itemRefs[key] && this.itemRefs[key] !== node) return;
+      this.itemRefs[key] = node;
+      const newH = Math.max(node.offsetHeight, node.scrollHeight, node.clientHeight, 100);
+      if (!this.heightCache[key] || this.heightCache[key] !== newH) {
+        this.heightCache[key] = newH;
+        if (!this.layoutRaf) {
+          this.layoutRaf = requestAnimationFrame(() => {
+            if (this.mounted) this.updateLayout();
+            this.layoutRaf = null;
+          });
+        }
+      }
+    } else {
+      delete this.itemRefs[key];
+      this.imgLoad[key]?.off('always');
+      delete this.imgLoad[key];
+    }
+  };
+
+  handleHeightChange = (key, h) => {
+    const newHeight = Math.max(0, h); // Ensure height is not negative
+    const oldCachedHeight = this.heightCache[key]; // Get it before potential update
+
+    if (this._debugLoggingEnabled) {
+      console.log(`[StackGrid] StackGrid::handleHeightChange - Received for Key: ${key}, New Height: ${newHeight.toFixed(1)}, Cached Height: ${oldCachedHeight?.toFixed(1)}`);
+    }
+
+    // Scenario 1: Reported height is effectively zero for an item that's being/has been removed
+    if (newHeight < 1 && !this.itemRefs[key]) {
+      if (this._debugLoggingEnabled) {
+        console.log(`[StackGrid] StackGrid::handleHeightChange - Key: ${key} reported height ${newHeight.toFixed(1)} but itemRef is already cleared. IGNORING.`);
+      }
+      return; 
+    }
+
+    // Scenario 2: Reported height is effectively zero for an item that *should* be there
+    if (newHeight < 1 && this.itemRefs[key] && (oldCachedHeight === undefined || oldCachedHeight > 0)) {
+      if (this._debugLoggingEnabled) {
+        console.warn(`[StackGrid] StackGrid::handleHeightChange - WARNING: Key: ${key} (itemRef exists) reported suspicious height: ${newHeight.toFixed(1)}. Previous cache: ${oldCachedHeight?.toFixed(1)}. This item's content might be unstable. SKIPPING layout update for this zero height.`);
+      }
+      // If it had a valid height before, don't let a transient 0 cause a full reflow.
+      // The ResizeObserver might report a valid height again shortly.
+      if (oldCachedHeight !== undefined && oldCachedHeight > 0) {
+        return;
+      }
+    }
+
+    // Only update and force layout if the height has meaningfully changed
+    // AND the newHeight is valid (>=1) OR it's an item whose height was not previously cached
+    const heightDifference = Math.abs(newHeight - (oldCachedHeight || 0));
+    const isSignificantChange = heightDifference > 2; // Threshold for significant change
+
+    if (isSignificantChange && this.mounted && this.itemRefs[key]) {
+      if (newHeight < 1 && this.itemRefs[key] && oldCachedHeight === undefined) {
+        if (this._debugLoggingEnabled) {
+          console.warn(`[StackGrid] StackGrid::handleHeightChange - WARNING: Key: ${key} (NEW item, itemRef exists) reported initial suspicious height: ${newHeight.toFixed(1)}. Caching, but this may cause issues.`);
+        }
+      }
+
+      if (this._debugLoggingEnabled) {
+        console.log(`[StackGrid] StackGrid::handleHeightChange - Updating height cache for Key: ${key} from ${oldCachedHeight?.toFixed(1)} to ${newHeight.toFixed(1)} and forcing layout update.`);
+      }
+      this.heightCache[key] = newHeight;
+      if (this.columnAssignments) {
+        const assignment = this.columnAssignments.find(a => a.key === key);
+        if (assignment) {
+          assignment.height = newHeight;
+        }
+      }
+      this.forceLayoutUpdate();
+    } else if (this._debugLoggingEnabled && this.itemRefs[key]) {
+      console.log(`[StackGrid] StackGrid::handleHeightChange - Key: ${key}, New Height ${newHeight.toFixed(1)} vs Cached ${oldCachedHeight?.toFixed(1)}. No significant update needed or item already removed.`);
+    }
+  };
+
   updateLayout() {
     this.grid?.updateLayout();
   }
 
   handleRef = (g) => {
+    if (this._debugLoggingEnabled) {
+      console.log('[StackGrid] StackGrid::handleRef - Received GridInline instance:', g);
+    }
     this.grid = g;
     if (typeof this.props.gridRef === 'function') {
+      if (this._debugLoggingEnabled) {
+        console.log('[StackGrid] StackGrid::handleRef - Calling this.props.gridRef with StackGrid instance.');
+      }
       this.props.gridRef(this);
     }
   };
 
   render() {
-    const { children, ...rest } = this.props;
+    const {
+      className,
+      style,
+      component: ElementType,
+      itemComponent,
+      children,
+      rtl,
+      virtualized,
+    } = this.props;
+    const { rects, height, containerRect } = this.state;
+    const containerStyle = {
+      position: 'relative',
+      height,
+      overflow: 'visible',
+      ...style,
+    };
+    const validChildren = React.Children.toArray(children).filter(isValidElement);
+    const buffer = 800;
+    const actuallyVirtualized = virtualized;
+
+    const gridContainerViewportTop = containerRect ? containerRect.top : 0;
+    const visibleThresholdTop = 0 - buffer;
+    const visibleThresholdBottom = (ExecutionEnvironment.canUseDOM ? window.innerHeight : 800) + buffer;
+
+    let renderedItemCount = 0;
+    let virtualizedItemCount = 0;
+
+    const gridItems = validChildren.map((child, i) => {
+      const rect = rects[i];
+      if (!rect) return null;
+
+      let isVisible = true;
+      if (actuallyVirtualized) {
+        const itemAbsoluteViewportTop = gridContainerViewportTop + rect.top;
+        const itemAbsoluteViewportBottom = itemAbsoluteViewportTop + rect.height;
+        isVisible = !(itemAbsoluteViewportBottom < visibleThresholdTop || itemAbsoluteViewportTop > visibleThresholdBottom);
+
+        if (!isVisible) {
+          virtualizedItemCount++;
+          return null;
+        }
+      }
+      renderedItemCount++;
+      return (
+        <GridItem
+          key={child.key}
+          itemKey={child.key}
+          index={i}
+          component={itemComponent}
+          rect={rect}
+          rtl={rtl}
+          ref={(node) => this.handleItemRef(child.key, node)}
+          onHeightChange={(newHeight) => this.handleHeightChange(child.key, newHeight)}
+        >
+          {child}
+        </GridItem>
+      );
+    });
+
     return (
-      <GridInline {...rest} gridRef={this.handleRef}>
-        {children}
-      </GridInline>
+      <ElementType
+        data-testid="stack-grid-container"
+        className={className}
+        style={containerStyle}
+        ref={this.containerRef}
+      >
+        {gridItems}
+      </ElementType>
     );
   }
 }
-
-StackGrid.propTypes = {
-  children: PropTypes.node,
-  className: PropTypes.string,
-  style: PropTypes.object,
-  gridRef: PropTypes.func,
-  component: PropTypes.string,
-  itemComponent: PropTypes.string,
-  columnWidth: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
-  gutterWidth: PropTypes.number,
-  gutterHeight: PropTypes.number,
-  monitorImagesLoaded: PropTypes.bool,
-  enableSSR: PropTypes.bool,
-  onLayout: PropTypes.func,
-  horizontal: PropTypes.bool,
-  rtl: PropTypes.bool,
-  virtualized: PropTypes.bool,
-};
-
-StackGrid.defaultProps = {
-  style: {},
-  gridRef: null,
-  component: 'div',
-  itemComponent: 'span',
-  columnWidth: 150,
-  gutterWidth: 5,
-  gutterHeight: 5,
-  monitorImagesLoaded: false,
-  enableSSR: false,
-  onLayout: null,
-  horizontal: false,
-  rtl: false,
-  virtualized: false,
-};
 
 export { GridInline };
 export default sizeMe({ monitorHeight: true })(StackGrid);
