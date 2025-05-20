@@ -27,17 +27,27 @@ jest.mock('react-sizeme', () => ({
   },
 }));
 
-// Mock requestAnimationFrame
-const mockRAF = (callback) => setTimeout(callback, 0);
-const mockCAF = (id) => clearTimeout(id);
+// Mock requestAnimationFrame and cancelAnimationFrame
+let rafCallbacks = [];
+let rafId = 0;
+
+global.requestAnimationFrame = (callback) => {
+  rafId += 1;
+  rafCallbacks.push({ id: rafId, callback });
+  return rafId;
+};
+
+global.cancelAnimationFrame = (id) => {
+  rafCallbacks = rafCallbacks.filter(cb => cb.id !== id);
+};
 
 describe('StackGrid', () => {
   beforeEach(() => {
     mockSize.registerRef.mockClear();
     mockSize.unregisterRef.mockClear();
+    rafCallbacks = [];
+    rafId = 0;
     jest.useFakeTimers();
-    global.requestAnimationFrame = mockRAF;
-    global.cancelAnimationFrame = mockCAF;
   });
 
   afterEach(() => {
@@ -123,8 +133,32 @@ describe('StackGrid', () => {
 
     // Wait for initial layout to complete
     await act(async () => {
-      // Flush requestAnimationFrame
-      jest.runAllTimers();
+      // Execute all pending RAF callbacks
+      rafCallbacks.forEach(({ callback }) => callback());
+      rafCallbacks = [];
+      // Allow any microtasks to run
+      await Promise.resolve();
+    });
+
+    // Force a layout update to ensure onLayout is called
+    await act(async () => {
+      // Get the GridInline instance
+      const gridInstance = mockSize.registerRef.mock.calls[0][0];
+      
+      // Simulate a height change
+      gridInstance.handleHeightChange('.0', 200);
+      
+      // Execute all pending RAF callbacks
+      rafCallbacks.forEach(({ callback }) => callback());
+      rafCallbacks = [];
+      
+      // Force a layout update
+      gridInstance.updateLayout();
+      
+      // Execute any remaining RAF callbacks
+      rafCallbacks.forEach(({ callback }) => callback());
+      rafCallbacks = [];
+      
       // Allow any microtasks to run
       await Promise.resolve();
     });
