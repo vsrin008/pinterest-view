@@ -106,13 +106,16 @@ DemoItem.propTypes = {
 };
 
 const generateItems = (count, startIndex = 0) =>
-  Array.from({ length: count }, (_, i) => ({
-    key: `item-${Date.now()}-${i}`,
-    type: 'demo',
-    color: getRandomColor(),
-    height: getRandomHeight(),
-    index: startIndex + i + 1,
-  }));
+  Array.from({ length: count }, (_, i) => {
+    const height = getRandomHeight();
+    return {
+      key: `item-${Date.now()}-${i}`,
+      type: 'demo',
+      color: getRandomColor(),
+      height,
+      index: startIndex + i + 1,
+    };
+  });
 
 function SimplifiedDemo() {
   const [items, setItems] = useState(generateItems(10));
@@ -301,6 +304,7 @@ function SimplifiedDemo() {
       <div style={{ padding: '20px 0' }}>
         <StackGrid
           virtualized
+          debug
           gridRef={(ref) => {
             gridRef = ref;
           }}
