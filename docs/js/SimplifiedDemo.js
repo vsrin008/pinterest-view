@@ -1,4 +1,3 @@
-// @flow
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import StackGrid from '../../src/components/StackGrid';
@@ -7,13 +6,12 @@ const COLUMN_WIDTH_MIN = 100;
 const COLUMN_WIDTH_MAX = 400;
 const GUTTER_SIZE_MIN = 0;
 const GUTTER_SIZE_MAX = 100;
+const CONTAINER_HEIGHT_MIN = 200;
+const CONTAINER_HEIGHT_MAX = 1000;
 
-const getRandomColor = () =>
-  `#${
-    Array.from({ length: 6 }, () =>
-      '0123456789ABCDEF'[Math.floor(Math.random() * 16)]
-    ).join('')
-  }`;
+const getRandomColor = () => `#${
+  Array.from({ length: 6 }, () => '0123456789ABCDEF'[Math.floor(Math.random() * 16)]).join('')
+}`;
 
 const getRandomHeight = () => 200 + Math.floor(Math.random() * 300);
 
@@ -109,7 +107,7 @@ const generateItems = (count, startIndex = 0) =>
   Array.from({ length: count }, (_, i) => {
     const height = getRandomHeight();
     return {
-      key: `item-${Date.now()}-${i}`,
+      key: `item-${startIndex + i}-${Math.random().toString(36).substr(2, 5)}`,
       type: 'demo',
       color: getRandomColor(),
       height,
@@ -123,7 +121,9 @@ function SimplifiedDemo() {
   const [columnWidth, setColumnWidth] = useState(300);
   const [gutterSize, setGutterSize] = useState(20);
   const [isRTL, setIsRTL] = useState(false);
-  const [isHorizontal, setIsHorizontal] = useState(false);
+  const [useScrollContainer, setUseScrollContainer] = useState(false);
+  const [containerHeight, setContainerHeight] = useState(600);
+  const scrollContainerRef = React.useRef(null);
 
   const handleColumnWidthChange = (value) => {
     const newValue = Math.min(COLUMN_WIDTH_MAX, Math.max(COLUMN_WIDTH_MIN, Number(value)));
@@ -135,18 +135,14 @@ function SimplifiedDemo() {
     setGutterSize(newValue);
   };
 
+  const handleContainerHeightChange = (value) => {
+    const newValue = Math.min(CONTAINER_HEIGHT_MAX, Math.max(CONTAINER_HEIGHT_MIN, Number(value)));
+    setContainerHeight(newValue);
+  };
+
   const addItems = () => {
     const demoItemCount = items.length;
-    const newItems = generateItems(5, demoItemCount).map((item) => {
-      let { key } = item;
-      while (usedKeys.has(key)) {
-        key = `item-${Date.now()}-${items.length}-${Math.random()
-          .toString(36)
-          .substr(2, 9)}`;
-      }
-      usedKeys.add(key);
-      return { ...item, key };
-    });
+    const newItems = generateItems(5, demoItemCount);
     setUsedKeys(new Set([...usedKeys, ...newItems.map((item) => item.key)]));
     setItems([...items, ...newItems]);
   };
@@ -163,7 +159,7 @@ function SimplifiedDemo() {
 
   const shuffleItems = () => {
     const itemsToShuffle = [...items];
-    for (let i = itemsToShuffle.length - 1; i > 0; i--) {
+    for (let i = itemsToShuffle.length - 1; i > 0; i -= 1) {
       const j = Math.floor(Math.random() * (i + 1));
       [itemsToShuffle[i], itemsToShuffle[j]] = [itemsToShuffle[j], itemsToShuffle[i]];
       itemsToShuffle[i].index = i + 1;
@@ -173,6 +169,34 @@ function SimplifiedDemo() {
   };
 
   let gridRef = null;
+
+  const gridContent = (
+    <StackGrid
+      virtualized
+      debug
+      gridRef={(ref) => {
+        gridRef = ref;
+      }}
+      columnWidth={columnWidth}
+      gutterWidth={gutterSize}
+      gutterHeight={gutterSize}
+      rtl={isRTL}
+      scrollContainer={useScrollContainer ? scrollContainerRef.current : null}
+      style={{
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        willChange: 'transform',
+      }}
+    >
+      {items.map((item) => (
+        <DemoItem
+          key={item.key}
+          color={item.color}
+          height={item.height}
+          index={item.index}
+        />
+      ))}
+    </StackGrid>
+  );
 
   return (
     <div>
@@ -208,15 +232,7 @@ function SimplifiedDemo() {
             </div>
           </div>
           <small className="form-text">
-            Min:
-            {' '}
-            {COLUMN_WIDTH_MIN}
-            {' '}
-            px, Max:
-            {' '}
-            {COLUMN_WIDTH_MAX}
-            {' '}
-            px
+            Min: {COLUMN_WIDTH_MIN} px, Max: {COLUMN_WIDTH_MAX} px
           </small>
         </div>
 
@@ -245,15 +261,7 @@ function SimplifiedDemo() {
             </div>
           </div>
           <small className="form-text">
-            Min:
-            {' '}
-            {GUTTER_SIZE_MIN}
-            {' '}
-            px, Max:
-            {' '}
-            {GUTTER_SIZE_MAX}
-            {' '}
-            px
+            Min: {GUTTER_SIZE_MIN} px, Max: {GUTTER_SIZE_MAX} px
           </small>
         </div>
 
@@ -270,16 +278,47 @@ function SimplifiedDemo() {
         </div>
 
         <div className="form-group">
-          <label htmlFor="horizontal" className="checkbox-label">
+          <label htmlFor="scrollContainer" className="checkbox-label">
             <input
-              id="horizontal"
+              id="scrollContainer"
               type="checkbox"
-              checked={isHorizontal}
-              onChange={() => setIsHorizontal(!isHorizontal)}
+              checked={useScrollContainer}
+              onChange={() => setUseScrollContainer(!useScrollContainer)}
             />
-            <span>Horizontal</span>
+            <span>Use Custom Scroll Container</span>
           </label>
         </div>
+
+        {useScrollContainer && (
+          <div className="form-group">
+            <label htmlFor="containerHeight">Container height:</label>
+            <div className="control-group">
+              <div className="input-with-slider">
+                <input
+                  id="containerHeight"
+                  type="number"
+                  className="form-control"
+                  value={containerHeight}
+                  min={CONTAINER_HEIGHT_MIN}
+                  max={CONTAINER_HEIGHT_MAX}
+                  onChange={(e) => handleContainerHeightChange(e.target.value)}
+                />
+                <input
+                  type="range"
+                  className="form-range"
+                  min={CONTAINER_HEIGHT_MIN}
+                  max={CONTAINER_HEIGHT_MAX}
+                  value={containerHeight}
+                  onChange={(e) => handleContainerHeightChange(e.target.value)}
+                  aria-label="Container height slider"
+                />
+              </div>
+            </div>
+            <small className="form-text">
+              Min: {CONTAINER_HEIGHT_MIN} px, Max: {CONTAINER_HEIGHT_MAX} px
+            </small>
+          </div>
+        )}
 
         <div>
           <button type="button" onClick={addItems} style={{ marginRight: 10 }}>
@@ -294,6 +333,7 @@ function SimplifiedDemo() {
           <button
             type="button"
             onClick={() => gridRef && gridRef.updateLayout()}
+            disabled={!gridRef}
             style={{ marginRight: 10 }}
           >
             Update Layout
@@ -302,32 +342,22 @@ function SimplifiedDemo() {
       </div>
 
       <div style={{ padding: '20px 0' }}>
-        <StackGrid
-          virtualized
-          debug
-          gridRef={(ref) => {
-            gridRef = ref;
-          }}
-          columnWidth={columnWidth}
-          gutterWidth={gutterSize}
-          gutterHeight={gutterSize}
-          monitorImagesLoaded
-          rtl={isRTL}
-          horizontal={isHorizontal}
-          style={{
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            willChange: 'transform',
-          }}
-        >
-          {items.map((item) => (
-            <DemoItem
-              key={item.key}
-              color={item.color}
-              height={item.height}
-              index={item.index}
-            />
-          ))}
-        </StackGrid>
+        {useScrollContainer ? (
+          <div
+            ref={scrollContainerRef}
+            style={{
+              height: `${containerHeight}px`,
+              overflow: 'auto',
+              border: '2px solid #ccc',
+              borderRadius: '8px',
+              padding: '20px',
+            }}
+          >
+            {gridContent}
+          </div>
+        ) : (
+          gridContent
+        )}
       </div>
     </div>
   );

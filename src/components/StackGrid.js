@@ -1,14 +1,18 @@
+// src/components/StackGrid.js
+
 /* eslint-disable max-classes-per-file */
 /* eslint-disable react/default-props-match-prop-types */
 /* eslint-disable react/no-unused-prop-types */
+/* eslint-disable react/jsx-filename-extension */
+/* eslint-disable react/jsx-props-no-spreading */
+/* eslint-disable no-param-reassign */
 
 import React, { Component, isValidElement } from 'react';
 import PropTypes from 'prop-types';
 import sizeMe from 'react-sizeme';
 
 const isNumber = (v) => typeof v === 'number' && Number.isFinite(v);
-const isPercentageNumber = (v) =>
-  typeof v === 'string' && /^\d+(\.\d+)?%$/.test(v);
+const isPercentageNumber = (v) => typeof v === 'string' && /^\d+(\.\d+)?%$/.test(v);
 
 const getColumnConfig = (containerWidth, columnWidth, gutterWidth) => {
   if (isNumber(columnWidth)) {
@@ -16,14 +20,12 @@ const getColumnConfig = (containerWidth, columnWidth, gutterWidth) => {
     const columnCount = Math.floor((containerWidth + gutterWidth) / (columnWidth + gutterWidth));
     return { columnCount: Math.max(1, columnCount), columnWidth };
   }
-  
   if (isPercentageNumber(columnWidth)) {
     const percentage = parseFloat(columnWidth) / 100;
     const columnCount = Math.floor(1 / percentage);
     const actualColumnWidth = (containerWidth - (columnCount - 1) * gutterWidth) / columnCount;
     return { columnCount, columnWidth: actualColumnWidth };
   }
-  
   throw new Error('columnWidth must be a number or percentage string');
 };
 
@@ -44,14 +46,19 @@ const GridItem = React.memo(React.forwardRef((
   {
     itemKey,
     component: Element,
-    rect = { top: 0, left: 0, width: 0, height: 0 },
+    rect = {
+      top: 0,
+      left: 0,
+      width: 0,
+      height: 0,
+    },
     style,
     rtl,
     children,
     onHeightChange,
     ...rest
   },
-  ref
+  ref,
 ) => {
   const itemRef = React.useRef(null);
   const [isInitialRender, setIsInitialRender] = React.useState(true);
@@ -62,7 +69,7 @@ const GridItem = React.memo(React.forwardRef((
 
   React.useEffect(() => {
     if (!itemRef.current || typeof onHeightChange !== 'function') return;
-    
+
     // Debounced height update to prevent cascade of updates
     let timeoutId;
     const updateHeight = () => {
@@ -86,7 +93,7 @@ const GridItem = React.memo(React.forwardRef((
       }
     });
     ro.observe(itemRef.current);
-    
+
     return () => {
       clearTimeout(timeoutId);
       ro.disconnect();
@@ -122,18 +129,13 @@ const GridItem = React.memo(React.forwardRef((
       {children}
     </Element>
   );
-}), (prevProps, nextProps) => {
-  // Custom comparison - only re-render if these props change
-  return (
-    prevProps.itemKey === nextProps.itemKey &&
-    prevProps.rect.top === nextProps.rect.top &&
-    prevProps.rect.left === nextProps.rect.left &&
-    prevProps.rect.width === nextProps.rect.width &&
-    prevProps.rect.height === nextProps.rect.height &&
-    prevProps.rtl === nextProps.rtl &&
-    prevProps.children === nextProps.children
-  );
-});
+}), (prevProps, nextProps) => prevProps.itemKey === nextProps.itemKey
+    && prevProps.rect.top === nextProps.rect.top
+    && prevProps.rect.left === nextProps.rect.left
+    && prevProps.rect.width === nextProps.rect.width
+    && prevProps.rect.height === nextProps.rect.height
+    && prevProps.rtl === nextProps.rtl
+    && prevProps.children === nextProps.children);
 
 GridItem.displayName = 'GridItem';
 GridItem.propTypes = {
@@ -145,54 +147,71 @@ GridItem.propTypes = {
     width: PropTypes.number,
     height: PropTypes.number,
   }),
-  style: PropTypes.object,
+  style: PropTypes.shape({}),
   rtl: PropTypes.bool,
   children: PropTypes.node,
   onHeightChange: PropTypes.func,
 };
 
+GridItem.defaultProps = {
+  itemKey: '',
+  component: 'div',
+  rect: {
+    top: 0,
+    left: 0,
+    width: 0,
+    height: 0,
+  },
+  style: {},
+  rtl: false,
+  children: null,
+  onHeightChange: null,
+};
+
+const GridInlinePropTypes = {
+  className: PropTypes.string,
+  style: PropTypes.shape({}),
+  component: PropTypes.string,
+  itemComponent: PropTypes.string,
+  children: PropTypes.node,
+  rtl: PropTypes.bool,
+  onLayout: PropTypes.func,
+  gridRef: PropTypes.func,
+  size: PropTypes.shape({
+    width: PropTypes.number,
+    height: PropTypes.number,
+    registerRef: PropTypes.func,
+    unregisterRef: PropTypes.func,
+  }),
+  columnWidth: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  gutterWidth: PropTypes.number,
+  gutterHeight: PropTypes.number,
+  virtualized: PropTypes.bool,
+  debug: PropTypes.bool,
+  virtualizationBuffer: PropTypes.number,
+  scrollContainer: PropTypes.instanceOf(HTMLElement),
+};
+
+const GridInlineDefaultProps = {
+  className: '',
+  style: {},
+  component: 'div',
+  itemComponent: 'div',
+  children: null,
+  rtl: false,
+  onLayout: () => {},
+  gridRef: null,
+  size: null,
+  columnWidth: 150,
+  gutterWidth: 5,
+  gutterHeight: 5,
+  virtualized: false,
+  debug: true,
+  virtualizationBuffer: 800,
+  scrollContainer: null,
+};
+
 class GridInline extends Component {
-  static propTypes = {
-    className: PropTypes.string,
-    style: PropTypes.object,
-    component: PropTypes.string,
-    itemComponent: PropTypes.string,
-    children: PropTypes.node,
-    rtl: PropTypes.bool,
-    onLayout: PropTypes.func,
-    gridRef: PropTypes.func,
-    size: PropTypes.shape({
-      width: PropTypes.number,
-      height: PropTypes.number,
-      registerRef: PropTypes.func,
-      unregisterRef: PropTypes.func,
-    }),
-    columnWidth: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    gutterWidth: PropTypes.number,
-    gutterHeight: PropTypes.number,
-    virtualized: PropTypes.bool,
-    debug: PropTypes.bool,
-    virtualizationBuffer: PropTypes.number,
-  };
-
-  static defaultProps = {
-    className: '',
-    style: {},
-    component: 'div',
-    itemComponent: 'div',
-    children: null,
-    rtl: false,
-    onLayout: () => {},
-    gridRef: null,
-    size: null,
-    columnWidth: 150,
-    gutterWidth: 5,
-    gutterHeight: 5,
-    virtualized: false,
-    debug: true,
-    virtualizationBuffer: 800,
-  };
-
   constructor(props) {
     super(props);
     this.containerRef = React.createRef();
@@ -202,6 +221,8 @@ class GridInline extends Component {
     this.layoutRequestId = null; // For debounced layout updates
     this.scrollRAF = null; // For optimized scroll handling
     this.lastLogTime = 0; // For throttling debug logs
+    // Initialize scroller in constructor to prevent null access in render
+    this.scroller = props.scrollContainer || window;
     this.state = {
       rects: [],
       height: 0,
@@ -209,40 +230,35 @@ class GridInline extends Component {
     };
   }
 
-  // Throttled debug logging
-  debugLog = (message, data = null, force = false) => {
-    if (!this.props.debug) return;
-    
-    const now = Date.now();
-    const timeSinceLastLog = now - this.lastLogTime;
-    
-    // Throttle logs to prevent console spam, but allow forced logs
-    if (!force && timeSinceLastLog < 1000) return;
-    
-    this.lastLogTime = now;
-    
-    if (data) {
-      console.log(`[StackGrid] ${message}`, data);
-    } else {
-      console.log(`[StackGrid] ${message}`);
-    }
-  };
-
   componentDidMount() {
     this.mounted = true;
-    this.props.size?.registerRef?.(this);
-    this.props.gridRef?.(this);
+    const {
+      size,
+      gridRef,
+      virtualized,
+      columnWidth,
+      children,
+      scrollContainer,
+    } = this.props;
+    size?.registerRef?.(this);
+    gridRef?.(this);
+
+    // Update scroller if it changed
+    this.scroller = scrollContainer || window;
 
     this.debugLog('Component mounted', {
-      virtualized: this.props.virtualized,
-      columnWidth: this.props.columnWidth,
-      childrenCount: React.Children.count(this.props.children)
+      virtualized,
+      columnWidth,
+      childrenCount: React.Children.count(children),
+      scrollContainer: scrollContainer ? 'custom' : 'window',
     }, true);
 
     // Listen to scroll events only if virtualized
-    if (this.props.virtualized) {
-      window.addEventListener('scroll', this.handleScroll, { passive: true });
-      this.debugLog('Scroll listener attached (virtualized mode)');
+    if (virtualized) {
+      this.scroller.addEventListener('scroll', this.handleScroll, { passive: true });
+      this.debugLog('Scroll listener attached (virtualized mode)', {
+        scroller: this.scroller === window ? 'window' : 'custom container',
+      });
     }
     window.addEventListener('resize', this.handleResize, { passive: true });
 
@@ -251,35 +267,65 @@ class GridInline extends Component {
   }
 
   componentDidUpdate(prevProps) {
-    const childrenChanged = prevProps.children !== this.props.children;
-    const sizeChanged = prevProps.size?.width !== this.props.size?.width;
-    const layoutPropsChanged = 
-      prevProps.columnWidth !== this.props.columnWidth ||
-      prevProps.gutterWidth !== this.props.gutterWidth ||
-      prevProps.gutterHeight !== this.props.gutterHeight;
+    const {
+      children,
+      size,
+      columnWidth,
+      gutterWidth,
+      gutterHeight,
+      scrollContainer,
+      virtualized,
+    } = this.props;
+    const childrenChanged = prevProps.children !== children;
+    const sizeChanged = prevProps.size?.width !== size?.width;
+    const layoutPropsChanged = prevProps.columnWidth !== columnWidth
+      || prevProps.gutterWidth !== gutterWidth
+      || prevProps.gutterHeight !== gutterHeight;
+    const scrollContainerChanged = prevProps.scrollContainer !== scrollContainer;
+
+    // Handle scroll container changes
+    if (scrollContainerChanged && this.mounted) {
+      // Remove old scroll listener
+      if (prevProps.virtualized) {
+        const oldScroller = prevProps.scrollContainer || window;
+        oldScroller.removeEventListener('scroll', this.handleScroll);
+      }
+
+      // Set up new scroll container
+      this.scroller = scrollContainer || window;
+
+      // Add new scroll listener
+      if (virtualized) {
+        this.scroller.addEventListener('scroll', this.handleScroll, { passive: true });
+        this.debugLog('Scroll container changed', {
+          from: prevProps.scrollContainer ? 'custom' : 'window',
+          to: scrollContainer ? 'custom' : 'window',
+        });
+      }
+    }
 
     // Clean up height cache for removed children
     if (childrenChanged) {
       const currentKeys = new Set(
-        React.Children.toArray(this.props.children)
+        React.Children.toArray(children)
           .filter(isValidElement)
-          .map(child => child.key)
+          .map((child) => child.key),
       );
-      
-      for (const key of this.heightCache.keys()) {
+
+      this.heightCache.forEach((value, key) => {
         if (!currentKeys.has(key)) {
           this.heightCache.delete(key);
           this.columnAssignments.delete(key);
         }
-      }
+      });
     }
 
     if (childrenChanged || sizeChanged || layoutPropsChanged) {
       this.debugLog('Layout update triggered', {
         childrenChanged,
-        sizeChanged: sizeChanged ? `${prevProps.size?.width} → ${this.props.size?.width}` : false,
+        sizeChanged: sizeChanged ? `${prevProps.size?.width} → ${size?.width}` : false,
         layoutPropsChanged,
-        newChildrenCount: React.Children.count(this.props.children)
+        newChildrenCount: React.Children.count(children),
       });
       this.scheduleLayout();
     }
@@ -287,15 +333,16 @@ class GridInline extends Component {
 
   componentWillUnmount() {
     this.mounted = false;
-    this.props.size?.unregisterRef?.(this);
-    
+    const { size, virtualized } = this.props;
+    size?.unregisterRef?.(this);
+
     this.debugLog('Component unmounting', null, true);
-    
-    if (this.props.virtualized) {
-      window.removeEventListener('scroll', this.handleScroll);
+
+    if (virtualized && this.scroller) {
+      this.scroller.removeEventListener('scroll', this.handleScroll);
     }
     window.removeEventListener('resize', this.handleResize);
-    
+
     if (this.layoutRequestId) {
       cancelAnimationFrame(this.layoutRequestId);
     }
@@ -304,20 +351,47 @@ class GridInline extends Component {
     }
   }
 
+  // Throttled debug logging
+  debugLog = (message, data = null, force = false) => {
+    const { debug } = this.props;
+    if (!debug) return;
+
+    const now = Date.now();
+    const timeSinceLastLog = now - this.lastLogTime;
+
+    // Throttle logs to prevent console spam, but allow forced logs
+    if (!force && timeSinceLastLog < 1000) return;
+
+    this.lastLogTime = now;
+
+    if (data) {
+      console.log(`[StackGrid] ${message}`, data);
+    } else {
+      console.log(`[StackGrid] ${message}`);
+    }
+  };
+
   handleScroll = () => {
-    if (!this.mounted || !this.props.virtualized) return;
-    
+    const { virtualized } = this.props;
+    if (!this.mounted || !virtualized || !this.scroller) return;
+
     // Use requestAnimationFrame for better performance
     if (this.scrollRAF) return;
-    
+
     this.scrollRAF = requestAnimationFrame(() => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      // Get scroll position from the appropriate container
+      const scrollTop = this.scroller === window
+        ? (window.pageYOffset || document.documentElement.scrollTop)
+        : this.scroller.scrollTop;
+
+      const { scrollTop: currentScrollTop } = this.state;
       // Only update if scroll position changed significantly
-      if (Math.abs(scrollTop - this.state.scrollTop) > 50) {
+      if (Math.abs(scrollTop - currentScrollTop) > 50) {
         this.debugLog('Scroll position changed', {
-          from: this.state.scrollTop,
+          from: currentScrollTop,
           to: scrollTop,
-          delta: scrollTop - this.state.scrollTop
+          delta: scrollTop - currentScrollTop,
+          scroller: this.scroller === window ? 'window' : 'custom container',
         });
         this.setState({ scrollTop });
       }
@@ -335,7 +409,7 @@ class GridInline extends Component {
     if (this.layoutRequestId) {
       cancelAnimationFrame(this.layoutRequestId);
     }
-    
+
     this.layoutRequestId = requestAnimationFrame(() => {
       this.updateLayout();
       this.layoutRequestId = null;
@@ -345,9 +419,15 @@ class GridInline extends Component {
   updateLayout = () => {
     if (!this.mounted) return;
 
-    const { size, children, columnWidth, gutterWidth, gutterHeight } = this.props;
+    const {
+      size,
+      children,
+      columnWidth,
+      gutterWidth,
+      gutterHeight,
+    } = this.props;
     const containerWidth = size?.width;
-    
+
     if (!containerWidth || containerWidth <= 0) return;
 
     const validChildren = React.Children.toArray(children).filter(isValidElement);
@@ -358,29 +438,29 @@ class GridInline extends Component {
 
     try {
       const { columnCount, columnWidth: actualColumnWidth } = getColumnConfig(
-        containerWidth, 
-        columnWidth, 
-        gutterWidth
+        containerWidth,
+        columnWidth,
+        gutterWidth,
       );
 
       const columnHeights = new Array(columnCount).fill(0);
       const rects = validChildren.map((child) => {
         // Find shortest column
         const shortestColumnIndex = getShortestColumn(columnHeights);
-        
+
         // Get cached height or use default
         const itemHeight = this.heightCache.get(child.key) || 200;
-        
+
         // Calculate position
         const left = shortestColumnIndex * (actualColumnWidth + gutterWidth);
         const top = columnHeights[shortestColumnIndex];
-        
+
         // Update column height
         columnHeights[shortestColumnIndex] = top + itemHeight + gutterHeight;
-        
+
         // Store column assignment for efficient updates
         this.columnAssignments.set(child.key, shortestColumnIndex);
-        
+
         return {
           top,
           left,
@@ -390,19 +470,20 @@ class GridInline extends Component {
       });
 
       const height = Math.max(...columnHeights) - gutterHeight;
-      
+
       this.debugLog('Layout calculated', {
         columns: columnCount,
         items: validChildren.length,
         containerWidth,
         columnWidth: actualColumnWidth,
         totalHeight: height,
-        heightCacheSize: this.heightCache.size
+        heightCacheSize: this.heightCache.size,
       });
-      
+
       this.setState({ rects, height }, () => {
-        if (typeof this.props.onLayout === 'function') {
-          this.props.onLayout({ height });
+        const { onLayout } = this.props;
+        if (typeof onLayout === 'function') {
+          onLayout({ height });
         }
       });
     } catch (error) {
@@ -417,11 +498,11 @@ class GridInline extends Component {
         key,
         from: oldHeight,
         to: height,
-        delta: height - (oldHeight || 0)
+        delta: height - (oldHeight || 0),
       });
-      
+
       this.heightCache.set(key, height);
-      
+
       // Update the layout to push other cards down
       this.updateLayoutForHeightChange(key, oldHeight, height);
     }
@@ -430,41 +511,46 @@ class GridInline extends Component {
   updateLayoutForHeightChange = (changedKey, oldHeight, newHeight) => {
     if (!this.mounted) return;
 
-    const { children, columnWidth, gutterWidth, gutterHeight } = this.props;
-    const { size } = this.props;
+    const {
+      children,
+      columnWidth,
+      gutterWidth,
+      gutterHeight,
+      size,
+    } = this.props;
     const containerWidth = size?.width;
-    
+
     if (!containerWidth || containerWidth <= 0) return;
 
     const validChildren = React.Children.toArray(children).filter(isValidElement);
-    const changedIndex = validChildren.findIndex(child => child.key === changedKey);
-    
+    const changedIndex = validChildren.findIndex((child) => child.key === changedKey);
+
     if (changedIndex === -1) return;
 
     try {
       const { columnCount, columnWidth: actualColumnWidth } = getColumnConfig(
-        containerWidth, 
-        columnWidth, 
-        gutterWidth
+        containerWidth,
+        columnWidth,
+        gutterWidth,
       );
 
       // Recalculate layout from the changed item onwards
       const columnHeights = new Array(columnCount).fill(0);
       const rects = [];
-      
+
       // First pass: calculate positions up to the changed item
       for (let i = 0; i < changedIndex; i += 1) {
         const child = validChildren[i];
         const itemHeight = this.heightCache.get(child.key) || 200;
-        
+
         // Find shortest column
         const shortestColumnIndex = getShortestColumn(columnHeights);
-        
+
         const left = shortestColumnIndex * (actualColumnWidth + gutterWidth);
         const top = columnHeights[shortestColumnIndex];
-        
+
         columnHeights[shortestColumnIndex] = top + itemHeight + gutterHeight;
-        
+
         rects.push({
           top,
           left,
@@ -472,20 +558,20 @@ class GridInline extends Component {
           height: itemHeight,
         });
       }
-      
+
       // Second pass: recalculate from changed item onwards
       for (let i = changedIndex; i < validChildren.length; i += 1) {
         const child = validChildren[i];
         const itemHeight = this.heightCache.get(child.key) || 200;
-        
+
         // Find shortest column
         const shortestColumnIndex = getShortestColumn(columnHeights);
-        
+
         const left = shortestColumnIndex * (actualColumnWidth + gutterWidth);
         const top = columnHeights[shortestColumnIndex];
-        
+
         columnHeights[shortestColumnIndex] = top + itemHeight + gutterHeight;
-        
+
         rects.push({
           top,
           left,
@@ -495,17 +581,18 @@ class GridInline extends Component {
       }
 
       const height = Math.max(...columnHeights) - gutterHeight;
-      
+
       this.debugLog('Layout updated for height change', {
         changedKey,
         oldHeight,
         newHeight,
-        totalHeight: height
+        totalHeight: height,
       });
-      
+
       this.setState({ rects, height }, () => {
-        if (typeof this.props.onLayout === 'function') {
-          this.props.onLayout({ height });
+        const { onLayout } = this.props;
+        if (typeof onLayout === 'function') {
+          onLayout({ height });
         }
       });
     } catch (error) {
@@ -523,10 +610,10 @@ class GridInline extends Component {
       rtl,
       virtualized,
     } = this.props;
-    
+
     const { rects, height, scrollTop } = this.state;
     const validChildren = React.Children.toArray(children).filter(isValidElement);
-    
+
     const containerStyle = {
       position: 'relative',
       height,
@@ -535,39 +622,46 @@ class GridInline extends Component {
 
     let renderedItems = validChildren;
     let virtualizedCount = 0;
-    
+
     // Optimized virtualization
-    if (virtualized) {
-      const buffer = this.props.virtualizationBuffer;
-      const viewportHeight = window.innerHeight;
-      const visibleTop = scrollTop - buffer;
-      const visibleBottom = scrollTop + viewportHeight + buffer;
-      
+    if (virtualized && this.scroller) {
+      const { virtualizationBuffer } = this.props;
+
+      // Get viewport height from the appropriate container
+      const viewportHeight = this.scroller === window
+        ? window.innerHeight
+        : this.scroller.clientHeight;
+
+      const visibleTop = scrollTop - virtualizationBuffer;
+      const visibleBottom = scrollTop + viewportHeight + virtualizationBuffer;
+
       const beforeCount = renderedItems.length;
-      renderedItems = validChildren.filter((child, i) => {
-        const rect = rects[i];
+      renderedItems = validChildren.filter((child, index) => {
+        const rect = rects[index];
         if (!rect) return false;
-        
+
         const itemTop = rect.top;
         const itemBottom = itemTop + rect.height;
-        
+
         return itemBottom >= visibleTop && itemTop <= visibleBottom;
       });
-      
+
       virtualizedCount = beforeCount - renderedItems.length;
-      
+
       if (virtualizedCount > 0) {
         this.debugLog('Virtualization active', {
           total: validChildren.length,
           rendered: renderedItems.length,
           hidden: virtualizedCount,
           scrollTop,
-          visibleRange: [visibleTop, visibleBottom]
+          visibleRange: [visibleTop, visibleBottom],
+          viewportHeight,
+          scroller: this.scroller === window ? 'window' : 'custom container',
         });
       }
     }
 
-    const gridItems = renderedItems.map((child, i) => {
+    const gridItems = renderedItems.map((child) => {
       const originalIndex = validChildren.indexOf(child);
       const rect = rects[originalIndex];
       if (!rect) return null;
@@ -579,7 +673,7 @@ class GridInline extends Component {
           component={itemComponent}
           rect={rect}
           rtl={rtl}
-          onHeightChange={(height) => this.handleHeightChange(child.key, height)}
+          onHeightChange={(itemHeight) => this.handleHeightChange(child.key, itemHeight)}
         >
           {child}
         </GridItem>
@@ -598,56 +692,62 @@ class GridInline extends Component {
   }
 }
 
+// Move propTypes and defaultProps outside the class
+GridInline.propTypes = GridInlinePropTypes;
+GridInline.defaultProps = GridInlineDefaultProps;
+
+const StackGridPropTypes = {
+  children: PropTypes.node,
+  className: PropTypes.string,
+  style: PropTypes.shape({}),
+  gridRef: PropTypes.func,
+  component: PropTypes.string,
+  itemComponent: PropTypes.string,
+  columnWidth: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+  gutterWidth: PropTypes.number,
+  gutterHeight: PropTypes.number,
+  onLayout: PropTypes.func,
+  rtl: PropTypes.bool,
+  virtualized: PropTypes.bool,
+  debug: PropTypes.bool,
+  size: PropTypes.shape({
+    width: PropTypes.number,
+    height: PropTypes.number,
+    registerRef: PropTypes.func,
+    unregisterRef: PropTypes.func,
+  }),
+  scrollContainer: PropTypes.instanceOf(HTMLElement),
+};
+
+const StackGridDefaultProps = {
+  children: null,
+  className: '',
+  style: {},
+  gridRef: null,
+  component: 'div',
+  itemComponent: 'div',
+  gutterWidth: 5,
+  gutterHeight: 5,
+  onLayout: null,
+  rtl: false,
+  virtualized: false,
+  debug: false,
+  size: null,
+  scrollContainer: null,
+};
+
 class StackGrid extends Component {
-  static propTypes = {
-    children: PropTypes.node,
-    className: PropTypes.string,
-    style: PropTypes.object,
-    gridRef: PropTypes.func,
-    component: PropTypes.string,
-    itemComponent: PropTypes.string,
-    columnWidth: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
-    gutterWidth: PropTypes.number,
-    gutterHeight: PropTypes.number,
-    onLayout: PropTypes.func,
-    rtl: PropTypes.bool,
-    virtualized: PropTypes.bool,
-    debug: PropTypes.bool,
-    size: PropTypes.shape({
-      width: PropTypes.number,
-      height: PropTypes.number,
-      registerRef: PropTypes.func,
-      unregisterRef: PropTypes.func,
-    }),
-  };
-
-  static defaultProps = {
-    style: {},
-    gridRef: null,
-    component: 'div',
-    itemComponent: 'div',
-    gutterWidth: 5,
-    gutterHeight: 5,
-    onLayout: null,
-    rtl: false,
-    virtualized: false,
-    debug: false,
-  };
-
   constructor(props) {
     super(props);
-    this.grid = null;
+    // eslint-disable-next-line no-unused-vars
+    this.grid = null; // Used for gridRef callback
   }
 
-  updateLayout = () => {
-    if (this.grid && typeof this.grid.updateLayout === 'function') {
-      this.grid.updateLayout();
-    }
-  };
-
   handleRef = (gridInlineInstance) => {
-    this.grid = gridInlineInstance;
-    this.props.gridRef?.(this);
+    // eslint-disable-next-line no-unused-vars
+    this.grid = gridInlineInstance; // Store reference for potential future use
+    const { gridRef } = this.props;
+    gridRef?.(this);
   };
 
   render() {
@@ -663,6 +763,10 @@ class StackGrid extends Component {
     );
   }
 }
+
+// Move propTypes and defaultProps outside the class
+StackGrid.propTypes = StackGridPropTypes;
+StackGrid.defaultProps = StackGridDefaultProps;
 
 export default sizeMe({ monitorHeight: false, monitorWidth: true })(StackGrid);
 export { GridInline };

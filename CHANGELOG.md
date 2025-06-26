@@ -1,5 +1,63 @@
 # Changelog
 
+## 1.3.0 (2025-01-27)
+
+### New Features
+
+- **Added `scrollContainer` prop** to support custom scroll containers instead of always using `window`
+  - Allows the grid to work properly inside scrollable divs, modals, sidebars, and other containers
+  - Maintains virtualization performance benefits when used in embedded layouts
+  - Falls back to window scrolling when no container is provided
+  - Automatically handles scroll event listeners and viewport calculations for custom containers
+
+### Performance Improvements
+
+- **Optimized virtualization for custom containers** with proper viewport height calculations
+- **Improved scroll handling** to work with both window and custom scroll containers
+- **Enhanced debug logging** to show which scroll container is being used
+
+### Bug Fixes
+
+- Fixed `this.scroller is null` error that occurred during initial render
+- Improved initialization of scroll container to prevent null access errors
+- Better handling of scroll container changes during component updates
+
+### Demo Enhancements
+
+- Added toggle for testing custom scroll container functionality
+- Added container height control to demonstrate different container sizes
+- Improved key generation to prevent duplicate keys
+- Removed unused `horizontal` prop from demo
+- Enhanced button states and user experience
+
+## 1.1.0 (2025-06-17)
+
+### Performance Improvements
+
+- **Major performance optimizations** for large grids and frequent updates
+- Added **debounced ResizeObserver** to prevent cascade of height updates
+- Implemented **React.memo** for GridItem to prevent unnecessary re-renders
+- Added **CSS containment** (`contain: layout style`) for better reflow isolation
+- Optimized **scroll handling** with requestAnimationFrame for smoother performance
+- Added **height cache cleanup** to prevent memory leaks when items are removed
+- Improved **column finding algorithm** from O(n*m) to O(n) complexity
+- Made **virtualization buffer configurable** for better performance tuning
+- Added **conditional transitions** to prevent performance issues during initial render
+
+### Features
+
+- Added `virtualizationBuffer` prop to configure virtualization buffer size (default: 800px)
+- Enhanced debug logging with throttled output to prevent console spam
+- Improved layout recalculation efficiency for height changes
+- Better handling of expandable items without layout shifts
+
+### Bug Fixes
+
+- Fixed memory leaks from height cache not being cleaned up
+- Improved scroll performance on mobile devices
+- Better handling of rapid height changes
+- Fixed potential layout thrashing during animations
+
 ## 1.0.0 (2024-03-11)
 
 ### Breaking Changes
