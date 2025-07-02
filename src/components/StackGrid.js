@@ -7,7 +7,7 @@
 /* eslint-disable react/jsx-props-no-spreading */
 /* eslint-disable no-param-reassign */
 
-import React, { Component, isValidElement } from 'react';
+import React, { Component, isValidElement, forwardRef, useRef, useImperativeHandle } from 'react';
 import PropTypes from 'prop-types';
 import sizeMe from 'react-sizeme';
 import computeLayout, { computeContainerHeight } from '../utils/computeLayout';
@@ -273,6 +273,22 @@ class GridInline extends Component {
     }
     window.addEventListener('resize', this.handleResize, { passive: true });
 
+    // Set up ResizeObserver fallback for when react-sizeme fails
+    if (this.containerRef.current) {
+      this.resizeObserver = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        if (entry && this.mounted) {
+          const { width } = entry.contentRect;
+          if (width > 0 && (!this.props.size || !this.props.size.width)) {
+            console.log('[StackGrid] ResizeObserver fallback: width =', width);
+            // Force a layout update with the measured width
+            this.forceUpdate();
+          }
+        }
+      });
+      this.resizeObserver.observe(this.containerRef.current);
+    }
+
     // Initial layout using new system
     this.layout();
   }
@@ -393,6 +409,11 @@ class GridInline extends Component {
     }
     window.removeEventListener('resize', this.handleResize);
 
+    // Clean up ResizeObserver
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+    }
+
     if (this.layoutRequestId) {
       cancelAnimationFrame(this.layoutRequestId);
     }
@@ -451,6 +472,13 @@ class GridInline extends Component {
 
   handleResize = () => {
     if (!this.mounted) return;
+    const { isFrozen } = this.state;
+    
+    if (isFrozen) {
+      this.debugLog('Window resize ignored (layout frozen)');
+      return;
+    }
+    
     this.debugLog('Window resize detected');
     this.layout();
   };
@@ -553,9 +581,20 @@ class GridInline extends Component {
   // eslint-disable-next-line react/no-unused-class-component-methods
   layout = () => {
     const { children, columnWidth, gutterWidth, gutterHeight, size } = this.props;
-    const containerWidth = size?.width;
+    let containerWidth = size?.width;
 
-    if (!containerWidth || containerWidth <= 0) return;
+    // Fallback: try to get width from DOM if react-sizeme failed
+    if (!containerWidth || containerWidth <= 0) {
+      if (this.containerRef.current) {
+        containerWidth = this.containerRef.current.clientWidth;
+        console.log('[StackGrid] Using DOM fallback width:', containerWidth);
+      }
+    }
+
+    if (!containerWidth || containerWidth <= 0) {
+      console.log('[StackGrid] No container width available, skipping layout');
+      return;
+    }
 
     const validChildren = React.Children.toArray(children).filter(isValidElement);
     if (validChildren.length === 0) {
@@ -664,7 +703,14 @@ class GridInline extends Component {
       gutterHeight,
       size,
     } = this.props;
-    const containerWidth = size?.width;
+    let containerWidth = size?.width;
+
+    // Fallback: try to get width from DOM if react-sizeme failed
+    if (!containerWidth || containerWidth <= 0) {
+      if (this.containerRef.current) {
+        containerWidth = this.containerRef.current.clientWidth;
+      }
+    }
 
     if (!containerWidth || containerWidth <= 0) return;
 
@@ -930,6 +976,15 @@ class GridInline extends Component {
 GridInline.propTypes = GridInlinePropTypes;
 GridInline.defaultProps = GridInlineDefaultProps;
 
+// --- Ref forwarding adapter for react-sizeme HOC ---
+const SizedGrid = sizeMe({ 
+  monitorHeight: false, 
+  monitorWidth: true,
+  refreshMode: 'debounce',
+  refreshRate: 16,
+  noPlaceholder: true
+})(GridInline);
+
 const StackGridPropTypes = {
   children: PropTypes.node,
   className: PropTypes.string,
@@ -970,60 +1025,44 @@ const StackGridDefaultProps = {
   scrollContainer: null,
 };
 
-class StackGrid extends Component {
-  constructor(props) {
-    super(props);
-    this.gridInline = null; // Store reference to GridInline instance
-  }
+const StackGrid = forwardRef((props, ref) => {
+  const inner = useRef(null);
 
-  handleRef = (gridInlineInstance) => {
-    this.gridInline = gridInlineInstance; // Store reference for method access
-    const { gridRef } = this.props;
-    console.log('[StackGrid] handleRef called with:', gridInlineInstance);
-    console.log('[StackGrid] gridInlineInstance has freeze method:', typeof gridInlineInstance?.freeze);
-    gridRef?.(gridInlineInstance); // Pass the GridInline instance, not this wrapper
-  };
+  useImperativeHandle(
+    ref,
+    () => {
+      if (inner.current) {
+        // Alias updateLayout for test compatibility
+        inner.current.updateLayout = inner.current.layout.bind(inner.current);
+      }
+      return inner.current;
+    },
+    []
+  );
 
-  // Expose freeze/unfreeze methods
-  // eslint-disable-next-line react/no-unused-class-component-methods
-  freeze = () => {
-    if (this.gridInline) {
-      this.gridInline.freeze();
+  const handleGridRef = (inst) => {
+    console.log('[StackGrid] handleGridRef called with:', inst);
+    inner.current = inst;
+    // Also call the original gridRef prop if provided
+    if (props.gridRef) {
+      console.log('[StackGrid] Calling original gridRef prop');
+      props.gridRef(inst);
     }
   };
 
-  // eslint-disable-next-line react/no-unused-class-component-methods
-  unfreeze = () => {
-    if (this.gridInline) {
-      this.gridInline.unfreeze();
-    }
-  };
+  console.log('[StackGrid] Rendering StackGrid with props:', {
+    hasGridRef: !!props.gridRef,
+    hasRef: !!ref,
+    childrenCount: React.Children.count(props.children),
+  });
 
-  // Expose layout method
-  // eslint-disable-next-line react/no-unused-class-component-methods
-  layout = () => {
-    if (this.gridInline) {
-      this.gridInline.layout();
-    }
-  };
-
-  render() {
-    const { gridRef, children, ...restOfProps } = this.props;
-
-    return (
-      <GridInline
-        {...restOfProps}
-        gridRef={this.handleRef}
-      >
-        {children}
-      </GridInline>
-    );
-  }
-}
+  // Use react-sizeme HOC with better configuration
+  return <SizedGrid {...props} gridRef={handleGridRef} />;
+});
 
 // Move propTypes and defaultProps outside the class
 StackGrid.propTypes = StackGridPropTypes;
 StackGrid.defaultProps = StackGridDefaultProps;
 
-export default sizeMe({ monitorHeight: false, monitorWidth: true })(StackGrid);
+export default StackGrid;
 export { GridInline };
