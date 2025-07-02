@@ -10,6 +10,7 @@
 import React, { Component, isValidElement } from 'react';
 import PropTypes from 'prop-types';
 import sizeMe from 'react-sizeme';
+import computeLayout, { computeContainerHeight } from '../utils/computeLayout';
 
 const isNumber = (v) => typeof v === 'number' && Number.isFinite(v);
 const isPercentageNumber = (v) => typeof v === 'string' && /^\d+(\.\d+)?%$/.test(v);
@@ -223,11 +224,21 @@ class GridInline extends Component {
     this.lastLogTime = 0; // For throttling debug logs
     // Initialize scroller in constructor to prevent null access in render
     this.scroller = props.scrollContainer || window;
+    
+    // New stable layout system
+    this.rectsMap = new Map(); // key → Rect
+    this.pendingMeasurementKeys = new Set(); // Track keys waiting for height measurement
+    this.prevKeySet = null; // Store previous keys when freezing
+    
     this.state = {
       rects: [],
       height: 0,
       scrollTop: 0,
+      isFrozen: false, // New state for frozen layout
+      forceRenderAll: false, // Temporarily render all items when adding new ones
     };
+    // Store frozen layout configuration
+    this.frozenConfig = null;
   }
 
   componentDidMount() {
@@ -262,8 +273,8 @@ class GridInline extends Component {
     }
     window.addEventListener('resize', this.handleResize, { passive: true });
 
-    // Initial layout
-    this.scheduleLayout();
+    // Initial layout using new system
+    this.layout();
   }
 
   componentDidUpdate(prevProps) {
@@ -276,6 +287,7 @@ class GridInline extends Component {
       scrollContainer,
       virtualized,
     } = this.props;
+    const { isFrozen } = this.state;
     const childrenChanged = prevProps.children !== children;
     const sizeChanged = prevProps.size?.width !== size?.width;
     const layoutPropsChanged = prevProps.columnWidth !== columnWidth
@@ -320,6 +332,44 @@ class GridInline extends Component {
       });
     }
 
+    // Handle frozen layout with incremental updates
+    if (childrenChanged && isFrozen) {
+      const currentKeys = React.Children.toArray(children)
+        .filter(isValidElement)
+        .map((child) => child.key);
+      const prevKeys = React.Children.toArray(prevProps.children)
+        .filter(isValidElement)
+        .map((child) => child.key);
+      
+      // Find new keys
+      const newKeys = currentKeys.filter((key) => !prevKeys.includes(key));
+      
+      console.log('[StackGrid] Frozen layout check - detailed', {
+        childrenChanged,
+        isFrozen: this.state.isFrozen,
+        currentKeys,
+        prevKeys,
+        newKeys,
+        newKeysLength: newKeys.length,
+        hasFrozenConfig: !!this.frozenConfig,
+        frozenConfig: this.frozenConfig,
+        prevKeySet: this.prevKeySet ? Array.from(this.prevKeySet) : null,
+      });
+      
+      if (newKeys.length > 0 && this.frozenConfig) {
+        // 1) remember who we need
+        this.pendingMeasurementKeys = new Set(newKeys);
+        // 2) show everything offscreen (bypass virtualization)
+        this.setState({ forceRenderAll: true });
+        // 3) don't compute layout yet—wait for all heights
+        console.log('[StackGrid] Entering measurement mode for new items', {
+          pendingMeasurementKeys: Array.from(this.pendingMeasurementKeys),
+        });
+        return;
+      }
+    }
+
+    // Normal layout updates (when not frozen)
     if (childrenChanged || sizeChanged || layoutPropsChanged) {
       this.debugLog('Layout update triggered', {
         childrenChanged,
@@ -327,7 +377,7 @@ class GridInline extends Component {
         layoutPropsChanged,
         newChildrenCount: React.Children.count(children),
       });
-      this.scheduleLayout();
+      this.layout();
     }
   }
 
@@ -402,36 +452,114 @@ class GridInline extends Component {
   handleResize = () => {
     if (!this.mounted) return;
     this.debugLog('Window resize detected');
-    this.scheduleLayout();
+    this.layout();
   };
 
-  scheduleLayout = () => {
-    if (this.layoutRequestId) {
-      cancelAnimationFrame(this.layoutRequestId);
-    }
+  // New method to freeze/unfreeze layout
+  freezeLayout = (frozen = true) => {
+    console.log('[StackGrid] freezeLayout called with frozen:', frozen);
+    const { rects } = this.state;
+    this.setState({ isFrozen: frozen }, () => {
+      if (frozen) {
+        // Store the current column configuration when freezing
+        const { columnWidth, gutterWidth, gutterHeight, size } = this.props;
+        const containerWidth = size?.width;
+        
+        console.log('[StackGrid] Freezing layout - checking size prop', {
+          size,
+          containerWidth,
+          hasSize: !!size,
+          hasWidth: !!containerWidth,
+        });
+        
+        if (containerWidth) {
+          const { columnCount, columnWidth: actualColumnWidth } = getColumnConfig(
+            containerWidth,
+            columnWidth,
+            gutterWidth,
+          );
+          this.frozenConfig = {
+            columnCount,
+            columnWidth: actualColumnWidth,
+            gutterWidth,
+            gutterHeight,
+            containerWidth,
+          };
+          console.log('[StackGrid] Frozen config set', this.frozenConfig);
+          
+          // Store previous keys when freezing
+          const validChildren = React.Children.toArray(this.props.children).filter(isValidElement);
+          this.prevKeySet = new Set(validChildren.map(child => child.key));
+          console.log('[StackGrid] Previous keys stored', Array.from(this.prevKeySet));
+        } else {
+          // Fallback: try to get width from DOM
+          const domWidth = this.containerRef.current?.clientWidth;
+          console.log('[StackGrid] Trying DOM fallback for container width', {
+            domWidth,
+            containerRef: !!this.containerRef.current,
+          });
+          
+          if (domWidth) {
+            const { columnCount, columnWidth: actualColumnWidth } = getColumnConfig(
+              domWidth,
+              columnWidth,
+              gutterWidth,
+            );
+            this.frozenConfig = {
+              columnCount,
+              columnWidth: actualColumnWidth,
+              gutterWidth,
+              gutterHeight,
+              containerWidth: domWidth,
+            };
+            console.log('[StackGrid] Frozen config set via DOM fallback', this.frozenConfig);
+            
+            // Store previous keys when freezing
+            const validChildren = React.Children.toArray(this.props.children).filter(isValidElement);
+            this.prevKeySet = new Set(validChildren.map(child => child.key));
+            console.log('[StackGrid] Previous keys stored', Array.from(this.prevKeySet));
+          } else {
+            console.log('[StackGrid] Cannot freeze - no container width available from size prop or DOM', {
+              size,
+              containerWidth,
+              domWidth,
+            });
+          }
+        }
+      } else {
+        // Clear frozen config when unfreezing
+        this.frozenConfig = null;
+        this.prevKeySet = null;
+        this.pendingMeasurementKeys.clear();
+      }
 
-    this.layoutRequestId = requestAnimationFrame(() => {
-      this.updateLayout();
-      this.layoutRequestId = null;
+      console.log('[StackGrid] Layout frozen/unfrozen', {
+        frozen,
+        currentRects: rects.length,
+        heightCacheSize: this.heightCache.size,
+        frozenConfig: this.frozenConfig,
+      });
     });
   };
 
-  updateLayout = () => {
-    if (!this.mounted) return;
+  // Expose freeze/unfreeze methods
+  // eslint-disable-next-line react/no-unused-class-component-methods
+  freeze = () => this.freezeLayout(true);
 
-    const {
-      size,
-      children,
-      columnWidth,
-      gutterWidth,
-      gutterHeight,
-    } = this.props;
+  // eslint-disable-next-line react/no-unused-class-component-methods
+  unfreeze = () => this.freezeLayout(false);
+
+  // New layout method for manual control
+  // eslint-disable-next-line react/no-unused-class-component-methods
+  layout = () => {
+    const { children, columnWidth, gutterWidth, gutterHeight, size } = this.props;
     const containerWidth = size?.width;
 
     if (!containerWidth || containerWidth <= 0) return;
 
     const validChildren = React.Children.toArray(children).filter(isValidElement);
     if (validChildren.length === 0) {
+      this.rectsMap.clear();
       this.setState({ rects: [], height: 0 });
       return;
     }
@@ -443,56 +571,76 @@ class GridInline extends Component {
         gutterWidth,
       );
 
-      const columnHeights = new Array(columnCount).fill(0);
-      const rects = validChildren.map((child) => {
-        // Find shortest column
-        const shortestColumnIndex = getShortestColumn(columnHeights);
-
-        // Get cached height or use default
-        const itemHeight = this.heightCache.get(child.key) || 200;
-
-        // Calculate position
-        const left = shortestColumnIndex * (actualColumnWidth + gutterWidth);
-        const top = columnHeights[shortestColumnIndex];
-
-        // Update column height
-        columnHeights[shortestColumnIndex] = top + itemHeight + gutterHeight;
-
-        // Store column assignment for efficient updates
-        this.columnAssignments.set(child.key, shortestColumnIndex);
-
-        return {
-          top,
-          left,
-          width: actualColumnWidth,
-          height: itemHeight,
-        };
-      });
-
-      const height = Math.max(...columnHeights) - gutterHeight;
-
-      this.debugLog('Layout calculated', {
-        columns: columnCount,
-        items: validChildren.length,
-        containerWidth,
+      const config = {
+        columnCount,
         columnWidth: actualColumnWidth,
-        totalHeight: height,
-        heightCacheSize: this.heightCache.size,
+        gutterWidth,
+        gutterHeight,
+      };
+
+      const keys = validChildren.map((child) => child.key);
+      const rectsObj = computeLayout(keys, this.heightCache, config);
+      
+      this.rectsMap = new Map(Object.entries(rectsObj));
+      const height = computeContainerHeight(rectsObj, config);
+
+      this.debugLog('Manual layout computed', {
+        items: validChildren.length,
+        columns: columnCount,
+        height,
       });
 
-      this.setState({ rects, height }, () => {
+      this.setState({
+        rects: keys.map((key) => rectsObj[key]),
+        height,
+      }, () => {
         const { onLayout } = this.props;
         if (typeof onLayout === 'function') {
           onLayout({ height });
         }
       });
     } catch (error) {
-      console.error('Layout calculation error:', error);
+      console.error('Layout computation error:', error);
     }
   };
 
   handleHeightChange = (key, height) => {
+    const { isFrozen } = this.state;
+
+    // Always cache the height
     const oldHeight = this.heightCache.get(key);
+    this.heightCache.set(key, height);
+
+    // If we're frozen and waiting on this key:
+    if (isFrozen && this.pendingMeasurementKeys.has(key)) {
+      this.pendingMeasurementKeys.delete(key);
+      console.log('[StackGrid] Height measured for frozen item', {
+        key,
+        height,
+        remainingKeys: Array.from(this.pendingMeasurementKeys),
+      });
+      
+      // Once every new item is measured:
+      if (this.pendingMeasurementKeys.size === 0) {
+        // All heights ready → finalize
+        console.log('[StackGrid] All heights measured, finalizing frozen layout');
+        this.finalizeFrozenLayout();
+      }
+      // But don't do the normal "updateLayoutForHeightChange" when frozen
+      return;
+    }
+
+    // Don't trigger layout updates when frozen (for existing items)
+    if (isFrozen) {
+      this.debugLog('Height change ignored (layout frozen)', {
+        key,
+        height,
+        frozen: true,
+      });
+      return;
+    }
+
+    // Normal height change handling (when not frozen)
     if (oldHeight !== height) {
       this.debugLog('Item height changed', {
         key,
@@ -500,8 +648,6 @@ class GridInline extends Component {
         to: height,
         delta: height - (oldHeight || 0),
       });
-
-      this.heightCache.set(key, height);
 
       // Update the layout to push other cards down
       this.updateLayoutForHeightChange(key, oldHeight, height);
@@ -600,6 +746,87 @@ class GridInline extends Component {
     }
   };
 
+  finalizeFrozenLayout() {
+    const { columnCount, columnWidth, gutterWidth, gutterHeight } = this.frozenConfig;
+    
+    console.log('[StackGrid] Finalizing frozen layout', {
+      columnCount,
+      columnWidth,
+      gutterWidth,
+      gutterHeight,
+    });
+    
+    // 1) build current column bottom positions from existing rectsMap
+    const columnHeights = Array(columnCount).fill(0);
+    for (const [key, rect] of this.rectsMap.entries()) {
+      const col = Math.round(rect.left / (columnWidth + gutterWidth));
+      if (col >= 0 && col < columnCount) {
+        columnHeights[col] = Math.max(columnHeights[col], rect.top + rect.height + gutterHeight);
+      }
+    }
+    
+    console.log('[StackGrid] Current column heights', columnHeights);
+
+    // 2) for each new key in original insertion order, place it at the shortest column
+    const newKeys = Array.from(this.heightCache.keys())
+      .filter(k => !this.prevKeySet.has(k));  // store prevKeySet when freezing
+    
+    console.log('[StackGrid] Placing new keys', {
+      newKeys,
+      heightCacheKeys: Array.from(this.heightCache.keys()),
+      prevKeySet: this.prevKeySet ? Array.from(this.prevKeySet) : null,
+      rectsMapKeys: Array.from(this.rectsMap.keys()),
+    });
+    
+    for (const key of newKeys) {
+      const h = this.heightCache.get(key);
+      const i = getShortestColumn(columnHeights);
+      const left = i * (columnWidth + gutterWidth);
+      const top = columnHeights[i];
+      
+      console.log('[StackGrid] Placing item', {
+        key,
+        height: h,
+        column: i,
+        top,
+        left,
+        columnHeights: [...columnHeights],
+      });
+      
+      this.rectsMap.set(key, { top, left, width: columnWidth, height: h });
+      columnHeights[i] = top + h + gutterHeight;
+    }
+
+    // 3) update React state in one go
+    const allKeys = Array.from(this.rectsMap.keys());
+    const rectsArray = allKeys.map(k => this.rectsMap.get(k));
+    const containerHeight = Math.max(...columnHeights) - gutterHeight;
+
+    console.log('[StackGrid] Updating state with final layout', {
+      allKeysCount: allKeys.length,
+      rectsArrayCount: rectsArray.length,
+      containerHeight,
+      finalColumnHeights: columnHeights,
+    });
+
+    this.setState({
+      rects: rectsArray,
+      height: containerHeight,
+      forceRenderAll: false
+    }, () => {
+      console.log('[StackGrid] Frozen layout finalized successfully');
+      
+      // Update prevKeySet to include newly added items for subsequent additions
+      this.prevKeySet = new Set(Array.from(this.rectsMap.keys()));
+      console.log('[StackGrid] Updated prevKeySet for next addition', Array.from(this.prevKeySet));
+      
+      const { onLayout } = this.props;
+      if (typeof onLayout === 'function') {
+        onLayout({ height: containerHeight });
+      }
+    });
+  }
+
   render() {
     const {
       className,
@@ -624,7 +851,7 @@ class GridInline extends Component {
     let virtualizedCount = 0;
 
     // Optimized virtualization
-    if (virtualized && this.scroller) {
+    if (virtualized && this.scroller && !this.state.forceRenderAll) {
       const { virtualizationBuffer } = this.props;
 
       // Get viewport height from the appropriate container
@@ -659,19 +886,26 @@ class GridInline extends Component {
           scroller: this.scroller === window ? 'window' : 'custom container',
         });
       }
+    } else if (this.state.forceRenderAll) {
+      this.debugLog('Force rendering all items for height measurement', {
+        total: validChildren.length,
+        reason: 'frozen layout with new items',
+      });
     }
 
     const gridItems = renderedItems.map((child) => {
       const originalIndex = validChildren.indexOf(child);
       const rect = rects[originalIndex];
-      if (!rect) return null;
+      
+      // When forceRenderAll is true, render items even without rects for height measurement
+      if (!rect && !this.state.forceRenderAll) return null;
 
       return (
         <GridItem
           key={child.key}
           itemKey={child.key}
           component={itemComponent}
-          rect={rect}
+          rect={rect || { top: 0, left: 0, width: 300, height: 200 }} // Default rect for height measurement
           rtl={rtl}
           onHeightChange={(itemHeight) => this.handleHeightChange(child.key, itemHeight)}
         >
@@ -739,15 +973,38 @@ const StackGridDefaultProps = {
 class StackGrid extends Component {
   constructor(props) {
     super(props);
-    // eslint-disable-next-line no-unused-vars
-    this.grid = null; // Used for gridRef callback
+    this.gridInline = null; // Store reference to GridInline instance
   }
 
   handleRef = (gridInlineInstance) => {
-    // eslint-disable-next-line no-unused-vars
-    this.grid = gridInlineInstance; // Store reference for potential future use
+    this.gridInline = gridInlineInstance; // Store reference for method access
     const { gridRef } = this.props;
-    gridRef?.(this);
+    console.log('[StackGrid] handleRef called with:', gridInlineInstance);
+    console.log('[StackGrid] gridInlineInstance has freeze method:', typeof gridInlineInstance?.freeze);
+    gridRef?.(gridInlineInstance); // Pass the GridInline instance, not this wrapper
+  };
+
+  // Expose freeze/unfreeze methods
+  // eslint-disable-next-line react/no-unused-class-component-methods
+  freeze = () => {
+    if (this.gridInline) {
+      this.gridInline.freeze();
+    }
+  };
+
+  // eslint-disable-next-line react/no-unused-class-component-methods
+  unfreeze = () => {
+    if (this.gridInline) {
+      this.gridInline.unfreeze();
+    }
+  };
+
+  // Expose layout method
+  // eslint-disable-next-line react/no-unused-class-component-methods
+  layout = () => {
+    if (this.gridInline) {
+      this.gridInline.layout();
+    }
   };
 
   render() {

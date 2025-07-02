@@ -73,6 +73,7 @@ function BalancedGridDemo() {
   const [items, setItems] = useState(generateItems(20));
   const [columnWidth] = useState(COLUMN_WIDTH);
   const [gutterSize] = useState(GUTTER_SIZE);
+  const [isLayoutFrozen, setIsLayoutFrozen] = useState(false);
 
   const addItems = () => {
     const newItems = generateItems(5).map((item, i) => ({
@@ -115,13 +116,27 @@ function BalancedGridDemo() {
 
   const shuffleItems = () => {
     const itemsToShuffle = [...items];
-    for (let i = itemsToShuffle.length - 1; i > 0; i--) {
+    for (let i = itemsToShuffle.length - 1; i > 0; i -= 1) {
       const j = Math.floor(Math.random() * (i + 1));
       [itemsToShuffle[i], itemsToShuffle[j]] = [itemsToShuffle[j], itemsToShuffle[i]];
       itemsToShuffle[i].index = i + 1;
       itemsToShuffle[j].index = j + 1;
     }
     setItems(itemsToShuffle);
+  };
+
+  let gridRef = null;
+
+  const handleFreezeToggle = () => {
+    if (gridRef) {
+      if (isLayoutFrozen) {
+        gridRef.unfreeze();
+        setIsLayoutFrozen(false);
+      } else {
+        gridRef.freeze();
+        setIsLayoutFrozen(true);
+      }
+    }
   };
 
   return (
@@ -145,8 +160,23 @@ function BalancedGridDemo() {
         <button type="button" onClick={removeItems} style={{ marginRight: 10 }}>
           Remove 5 Items
         </button>
-        <button type="button" onClick={shuffleItems}>
+        <button type="button" onClick={shuffleItems} style={{ marginRight: 10 }}>
           Shuffle Items
+        </button>
+        <button
+          type="button"
+          onClick={handleFreezeToggle}
+          disabled={!gridRef}
+          style={{
+            backgroundColor: isLayoutFrozen ? '#ff6b6b' : '#4ecdc4',
+            color: 'white',
+            border: 'none',
+            padding: '8px 16px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+          }}
+        >
+          {isLayoutFrozen ? 'Unfreeze Layout' : 'Freeze Layout'}
         </button>
       </div>
 
@@ -163,6 +193,9 @@ function BalancedGridDemo() {
         leaved={null}
         monitorImagesLoaded={false}
         virtualized
+        gridRef={(ref) => {
+          gridRef = ref;
+        }}
       >
         {items.map((item) => (
           <div key={item.key} itemType="demo">

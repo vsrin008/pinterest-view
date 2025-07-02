@@ -1,5 +1,63 @@
 # Changelog
 
+## 2.0.0 (2025-01-27)
+
+### 🎉 Major New Feature: Frozen Layout System
+
+**Frozen Layout** is a powerful new feature that allows you to lock the current grid layout to prevent automatic rearrangements while still allowing new items to be added incrementally. This is perfect for content management systems, social media feeds, and any application where you want to maintain user context.
+
+#### New API Methods
+
+```javascript
+// Freeze the current layout - prevents automatic rearrangements
+gridRef.current.freeze();
+
+// Unfreeze the layout - allows normal automatic updates  
+gridRef.current.unfreeze();
+
+// Force a manual layout update
+gridRef.current.layout();
+```
+
+#### Key Features
+
+- **Layout Preservation**: Existing items maintain their exact positions and don't move when frozen
+- **Incremental Addition**: New items are automatically placed at the bottom of the shortest columns
+- **Accurate Height Measurement**: The grid temporarily renders all items to measure real heights for precise placement
+- **Event-Driven Architecture**: No timeouts or polling - uses efficient event-based height measurement
+- **Virtualization Compatible**: Performance benefits maintained even during frozen state
+- **Single Layout Calculation**: Updates happen in one batch for optimal performance
+
+#### Use Cases
+
+- **Content Management Systems**: Freeze layout when users are viewing content, add new posts without disrupting the current view
+- **Social Media Feeds**: Prevent layout shifts when new posts load, maintain user's reading position  
+- **E-commerce Product Grids**: Freeze layout during product browsing, add new products without rearranging existing ones
+- **Dashboard Widgets**: Lock widget positions during data updates, preserve user's dashboard configuration
+
+### Technical Improvements
+
+- **Pure Layout Computation**: Decoupled layout calculation from rendering for better stability
+- **Stable Position Mapping**: Maintains a `rectsMap` for consistent item positioning
+- **Height Measurement Optimization**: Only measures new items during frozen state
+- **Enhanced Debug Logging**: Added comprehensive logging for troubleshooting frozen layout behavior
+- **Improved Error Handling**: Better handling of edge cases during layout freezing/unfreezing
+
+### Performance Enhancements
+
+- **Event-driven height measurement** replaces timeout-based retry loops
+- **Efficient column height calculation** from existing items only
+- **Maintained virtualization performance** during frozen state
+- **Single-pass layout updates** for new items
+
+### Breaking Changes
+
+- None - this is a fully backward compatible release
+
+### Migration Guide
+
+No migration required! The frozen layout feature is opt-in and doesn't affect existing functionality.
+
 ## 1.3.0 (2025-01-27)
 
 ### New Features

@@ -1,9 +1,9 @@
 # pintrest-view
 
 [![npm version](https://badge.fury.io/js/%40zapperwing%2Fpintrest-view.svg)](https://www.npmjs.com/package/@zapperwing/pintrest-view)
-[![npm downloads](https://img.shields.io/npm/dm/@zapperwing/pintrest-view.svg)](https://www.npmjs.com/package/@zapperwing/pintrest-view)
+[![npm downloads](https://img.shields.io/npm/dm/%40zapperwing%2Fpintrest-view.svg)](https://www.npmjs.com/package/@zapperwing/pintrest-view)
 
-A Pinterest-style grid layout component for React.js with responsive design and dynamic content support. Create beautiful, responsive grid layouts that automatically adjust to your content.
+A Pinterest-style grid layout component for React.js with responsive design, dynamic content support, and **frozen layout capabilities**. Create beautiful, responsive grid layouts that automatically adjust to your content while maintaining user experience with layout control.
 
 ## Features
 
@@ -17,6 +17,7 @@ A Pinterest-style grid layout component for React.js with responsive design and 
 - 🖥️ Server-side rendering support
 - 🔄 Smooth transitions during layout changes
 - 🏎️ **Virtualized Rendering** – render only visible items for large grids to improve performance
+- 🧊 **Frozen Layout System** – lock layouts to prevent unwanted rearrangements while allowing incremental content addition
 
 ## Installation
 
@@ -55,6 +56,108 @@ const SimpleGrid = () => {
 
 export default SimpleGrid;
 ```
+
+## Frozen Layout Feature
+
+The frozen layout system allows you to lock the current layout to prevent automatic rearrangements while still allowing new items to be added incrementally. This is perfect for content management systems, social media feeds, and any application where you want to maintain user context.
+
+### Basic Frozen Layout Usage
+
+```jsx
+import React, { useState, useRef } from "react";
+import StackGrid from "@zapperwing/pintrest-view";
+
+const FrozenLayoutExample = () => {
+  const [items, setItems] = useState(initialItems);
+  const [isLayoutFrozen, setIsLayoutFrozen] = useState(false);
+  const [isGridReady, setIsGridReady] = useState(false);
+  const gridRef = useRef(null);
+
+  const handleFreezeToggle = () => {
+    if (gridRef.current) {
+      if (isLayoutFrozen) {
+        gridRef.current.unfreeze();
+        setIsLayoutFrozen(false);
+      } else {
+        gridRef.current.freeze();
+        setIsLayoutFrozen(true);
+      }
+    }
+  };
+
+  const addItems = () => {
+    const newItems = generateNewItems();
+    setItems([...items, ...newItems]);
+  };
+
+  return (
+    <div>
+      <button 
+        onClick={handleFreezeToggle}
+        disabled={!isGridReady}
+        style={{
+          backgroundColor: isLayoutFrozen ? '#d9534f' : '#5cb85c',
+          color: 'white',
+          border: 'none',
+          padding: '8px 16px',
+          borderRadius: '4px',
+          cursor: 'pointer',
+        }}
+      >
+        {isLayoutFrozen ? 'Unfreeze Layout' : 'Freeze Layout'}
+      </button>
+      
+      <button onClick={addItems}>Add Items</button>
+      
+      <StackGrid
+        ref={(ref) => {
+          gridRef.current = ref;
+          setIsGridReady(!!ref);
+        }}
+        columnWidth={300}
+        gutterWidth={20}
+        gutterHeight={20}
+        virtualized={true}
+      >
+        {items.map(item => (
+          <div key={item.id}>{item.content}</div>
+        ))}
+      </StackGrid>
+    </div>
+  );
+};
+```
+
+### Frozen Layout API
+
+#### Methods Available on Grid Ref
+
+```javascript
+// Freeze the current layout - prevents automatic rearrangements
+gridRef.current.freeze();
+
+// Unfreeze the layout - allows normal automatic updates
+gridRef.current.unfreeze();
+
+// Force a manual layout update
+gridRef.current.layout();
+```
+
+#### How Frozen Layout Works
+
+1. **Freeze**: When you call `freeze()`, the grid stores the current column configuration and item positions
+2. **Preserve**: Existing items maintain their exact positions and don't move
+3. **Add**: New items can be added and are automatically placed at the bottom of the shortest columns
+4. **Measure**: The grid temporarily renders all items to measure their real heights
+5. **Place**: New items are positioned using accurate height measurements
+6. **Unfreeze**: When you call `unfreeze()`, normal automatic layout behavior resumes
+
+### Use Cases for Frozen Layout
+
+- **Content Management Systems**: Freeze layout when users are viewing content, add new posts without disrupting the current view
+- **Social Media Feeds**: Prevent layout shifts when new posts load, maintain user's reading position
+- **E-commerce Product Grids**: Freeze layout during product browsing, add new products without rearranging existing ones
+- **Dashboard Widgets**: Lock widget positions during data updates, preserve user's dashboard configuration
 
 ## Using Custom Components
 
@@ -142,6 +245,23 @@ const ExpandableCard = ({ content, gridRef }) => {
 | `horizontal`           | `boolean`           | `false`     | Whether to use horizontal layout                                                                  |
 | `rtl`                  | `boolean`           | `false`     | Enable right-to-left layouts                                                                        |
 | `virtualized`          | `boolean`           | `false`     | **Enable virtualization** – only render items within (or near) the viewport for better performance with large grids |
+| `debug`                | `boolean`           | `false`     | Enable debug logging for troubleshooting                                                             |
+
+## Performance Features
+
+### Virtualization
+Enable virtualization for large grids to improve performance:
+```jsx
+<StackGrid virtualized={true}>
+  {/* Only visible items are rendered */}
+</StackGrid>
+```
+
+### Frozen Layout Performance
+- **Event-driven architecture** - no timeouts or polling
+- **Efficient height measurement** - only measures new items
+- **Maintained virtualization** - performance not compromised during frozen state
+- **Single layout calculation** - updates happen in one batch
 
 ## License
 
