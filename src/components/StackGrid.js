@@ -300,24 +300,34 @@ class GridInline extends Component {
       || prevProps.gutterWidth !== gutterWidth
       || prevProps.gutterHeight !== gutterHeight;
     const scrollContainerChanged = prevProps.scrollContainer !== scrollContainer;
+    const virtualizedChanged = prevProps.virtualized !== virtualized;
 
-    // Handle scroll container changes
-    if (scrollContainerChanged && this.mounted) {
-      // Remove old scroll listener
+    // If the scroll container or virtualization state has changed, we need to update listeners.
+    if ((scrollContainerChanged || virtualizedChanged) && this.mounted) {
+      this.debugLog('Updating scroll listeners', {
+        containerChanged: scrollContainerChanged,
+        virtualizedChanged,
+      });
+
+      // 1. Always try to remove the listener from the OLD scroller,
+      //    but only if virtualization was previously enabled.
       if (prevProps.virtualized) {
         const oldScroller = prevProps.scrollContainer || window;
         oldScroller.removeEventListener('scroll', this.handleScroll);
+        this.debugLog('Removed scroll listener from', {
+          scroller: oldScroller === window ? 'window' : 'old custom container',
+        });
       }
 
-      // Set up new scroll container
+      // 2. Update the internal scroller reference to the NEW one.
       this.scroller = scrollContainer || window;
 
-      // Add new scroll listener
+      // 3. Always try to add the listener to the NEW scroller,
+      //    but only if virtualization is currently enabled.
       if (virtualized) {
         this.scroller.addEventListener('scroll', this.handleScroll, { passive: true });
-        this.debugLog('Scroll container changed', {
-          from: prevProps.scrollContainer ? 'custom' : 'window',
-          to: scrollContainer ? 'custom' : 'window',
+        this.debugLog('Added scroll listener to', {
+          scroller: this.scroller === window ? 'window' : 'new custom container',
         });
       }
     }
@@ -378,12 +388,13 @@ class GridInline extends Component {
 
   componentWillUnmount() {
     this.mounted = false;
-    const { size, virtualized } = this.props;
+    const { size } = this.props;
     size?.unregisterRef?.(this);
 
     this.debugLog('Component unmounting', null, true);
 
-    if (virtualized && this.scroller) {
+    // Always try to remove the scroll listener if a scroller was ever set
+    if (this.scroller) {
       this.scroller.removeEventListener('scroll', this.handleScroll);
     }
     window.removeEventListener('resize', this.handleResize);

@@ -14,6 +14,7 @@ jest.mock('react-sizeme', () => ({
       registerRef: jest.fn(),
       unregisterRef: jest.fn(),
     };
+    // eslint-disable-next-line react/jsx-props-no-spreading
     return <Component {...props} size={mockSize} />;
   },
 }));
@@ -29,7 +30,7 @@ global.requestAnimationFrame = (callback) => {
 };
 
 global.cancelAnimationFrame = (id) => {
-  rafCallbacks = rafCallbacks.filter(cb => cb.id !== id);
+  rafCallbacks = rafCallbacks.filter((cb) => cb.id !== id);
 };
 
 // Helper to flush RAF callbacks
@@ -208,6 +209,122 @@ describe('StackGrid', () => {
       // Should render at least some items (viewport + buffer)
       const gridItems = container.querySelectorAll('.grid-item');
       expect(gridItems.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Scroll Container Management', () => {
+    it('properly handles scroll container changes', () => {
+      const mockScrollContainer = {
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        scrollTop: 0,
+      };
+
+      const { rerender } = render(
+        <GridInline
+          size={{ width: 800, height: 600, registerRef: jest.fn(), unregisterRef: jest.fn() }}
+          columnWidth={100}
+          virtualized
+          scrollContainer={mockScrollContainer}
+        >
+          <div key="1" style={{ height: '200px' }}>Item 1</div>
+          <div key="2" style={{ height: '200px' }}>Item 2</div>
+        </GridInline>,
+      );
+
+      act(() => {
+        flushRAF();
+        jest.runAllTimers();
+      });
+
+      // Should add scroll listener to the custom container
+      expect(mockScrollContainer.addEventListener).toHaveBeenCalledWith('scroll', expect.any(Function), {
+        passive: true,
+      });
+
+      // Create a new scroll container
+      const newMockScrollContainer = {
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        scrollTop: 0,
+      };
+
+      // Rerender with new scroll container
+      rerender(
+        <GridInline
+          size={{ width: 800, height: 600, registerRef: jest.fn(), unregisterRef: jest.fn() }}
+          columnWidth={100}
+          virtualized
+          scrollContainer={newMockScrollContainer}
+        >
+          <div key="1" style={{ height: '200px' }}>Item 1</div>
+          <div key="2" style={{ height: '200px' }}>Item 2</div>
+        </GridInline>,
+      );
+
+      act(() => {
+        flushRAF();
+        jest.runAllTimers();
+      });
+
+      // Should remove listener from old container
+      expect(mockScrollContainer.removeEventListener).toHaveBeenCalledWith('scroll', expect.any(Function));
+      
+      // Should add listener to new container
+      expect(newMockScrollContainer.addEventListener).toHaveBeenCalledWith('scroll', expect.any(Function), {
+        passive: true,
+      });
+    });
+
+    it('handles virtualization state changes correctly', () => {
+      const mockScrollContainer = {
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        scrollTop: 0,
+      };
+
+      const { rerender } = render(
+        <GridInline
+          size={{ width: 800, height: 600, registerRef: jest.fn(), unregisterRef: jest.fn() }}
+          columnWidth={100}
+          virtualized={false}
+          scrollContainer={mockScrollContainer}
+        >
+          <div key="1" style={{ height: '200px' }}>Item 1</div>
+          <div key="2" style={{ height: '200px' }}>Item 2</div>
+        </GridInline>,
+      );
+
+      act(() => {
+        flushRAF();
+        jest.runAllTimers();
+      });
+
+      // Should not add scroll listener when virtualization is disabled
+      expect(mockScrollContainer.addEventListener).not.toHaveBeenCalled();
+
+      // Enable virtualization
+      rerender(
+        <GridInline
+          size={{ width: 800, height: 600, registerRef: jest.fn(), unregisterRef: jest.fn() }}
+          columnWidth={100}
+          virtualized
+          scrollContainer={mockScrollContainer}
+        >
+          <div key="1" style={{ height: '200px' }}>Item 1</div>
+          <div key="2" style={{ height: '200px' }}>Item 2</div>
+        </GridInline>,
+      );
+
+      act(() => {
+        flushRAF();
+        jest.runAllTimers();
+      });
+
+      // Should add scroll listener when virtualization is enabled
+      expect(mockScrollContainer.addEventListener).toHaveBeenCalledWith('scroll', expect.any(Function), {
+        passive: true,
+      });
     });
   });
 });

@@ -1,5 +1,33 @@
 # Changelog
 
+## 3.0.1 (2025-01-27)
+
+### 🐛 Bug Fix: Scroll Container Listener Management
+
+**Fixed critical issue with scroll event listener management** that was preventing virtualization from working properly with custom scroll containers.
+
+#### Bug Fixes
+
+- **Fixed scroll listener attachment**: StackGrid now properly attaches scroll listeners to custom containers instead of always defaulting to window
+- **Improved listener cleanup**: Enhanced `componentDidUpdate` logic to always remove old listeners and add new ones when scroll container or virtualization state changes
+- **Robust state transitions**: Component now handles all possible state transitions (changing containers, toggling virtualization, or both) correctly
+- **Better unmount cleanup**: `componentWillUnmount` now always removes scroll listeners regardless of current virtualization state
+
+#### Technical Details
+
+- **Enhanced `componentDidUpdate`**: Now tracks both `scrollContainerChanged` and `virtualizedChanged` to ensure proper listener management
+- **Improved debug logging**: Added comprehensive logging to track when scroll listeners are added/removed
+- **Fixed race conditions**: Resolved issues where listeners would be attached to window instead of custom containers
+- **Added comprehensive tests**: New test suite to verify scroll container functionality and virtualization state changes
+
+#### Impact
+
+This fix resolves the issue where StackGrid would attach scroll listeners to the window instead of custom scroll containers, even when the correct DOM node was passed as the `scrollContainer` prop. The component is now robust to all mounting and prop change scenarios, making virtualization work reliably with custom scroll containers.
+
+#### Migration
+
+No migration required - this is a backward-compatible bug fix that improves existing functionality.
+
 ## 3.0.0 (2025-01-27)
 
 ### 🎉 Major Architectural Overhaul: "Measure-Then-Virtualize" System
