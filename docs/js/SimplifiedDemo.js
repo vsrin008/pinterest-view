@@ -123,8 +123,6 @@ function SimplifiedDemo() {
   const [isRTL, setIsRTL] = useState(false);
   const [useScrollContainer, setUseScrollContainer] = useState(false);
   const [containerHeight, setContainerHeight] = useState(600);
-  const [isLayoutFrozen, setIsLayoutFrozen] = useState(false);
-  const [isGridReady, setIsGridReady] = useState(false);
   const scrollContainerRef = React.useRef(null);
   const gridRef = React.useRef(null);
 
@@ -171,28 +169,13 @@ function SimplifiedDemo() {
     setItems(itemsToShuffle);
   };
 
-  const handleFreezeToggle = () => {
-    if (gridRef.current) {
-      if (isLayoutFrozen) {
-        gridRef.current.unfreeze();
-        setIsLayoutFrozen(false);
-      } else {
-        gridRef.current.freeze();
-        setIsLayoutFrozen(true);
-      }
-    }
-  };
-
   const gridContent = (
     <StackGrid
       virtualized
       debug
       gridRef={(ref) => {
         console.log('[Demo] gridRef callback called with:', ref);
-        console.log('[Demo] ref has freeze method:', typeof ref?.freeze);
         gridRef.current = ref;
-        setIsGridReady(!!ref);
-        console.log('[Demo] Grid ready state set to:', !!ref);
       }}
       columnWidth={columnWidth}
       gutterWidth={gutterSize}
@@ -346,29 +329,6 @@ function SimplifiedDemo() {
           </button>
           <button type="button" onClick={shuffleItems} style={{ marginRight: 10 }}>
             Shuffle Items
-          </button>
-          <button
-            type="button"
-            onClick={handleFreezeToggle}
-            disabled={!isGridReady}
-            style={{
-              marginRight: 10,
-              backgroundColor: isLayoutFrozen ? '#d9534f' : '#5cb85c',
-              color: 'white',
-              border: 'none',
-              padding: '8px 16px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              boxShadow: isLayoutFrozen ? '0 0 8px #d9534f55' : '0 0 8px #5cb85c55',
-              transition: 'background-color 0.2s, box-shadow 0.2s',
-            }}
-            onMouseEnter={() => {
-              console.log('[Demo] Button hover - gridRef.current:', gridRef.current);
-              console.log('[Demo] Button disabled:', !isGridReady);
-            }}
-          >
-            {isLayoutFrozen ? 'Unfreeze Layout' : 'Freeze Layout'}
           </button>
         </div>
       </div>

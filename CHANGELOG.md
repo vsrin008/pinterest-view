@@ -1,5 +1,80 @@
 # Changelog
 
+## 3.0.0 (2025-01-27)
+
+### 🎉 Major Architectural Overhaul: "Measure-Then-Virtualize" System
+
+**Complete rewrite of the grid architecture** to provide bulletproof, static scrolling with perfect virtualization. This version eliminates all layout shifting and positioning issues during scroll.
+
+#### 🚀 New Architecture
+
+- **Two-Phase Rendering**: Background measurement → Virtualized grid with fixed positions
+- **Static Scrolling**: No layout recalculation during scroll - positions are pre-computed and fixed
+- **Bulletproof Measurement**: Timeout fallback and proper handling of item addition/removal
+- **Seamless UX**: No "Measuring..." placeholders - grid is always visible during updates
+
+#### Breaking Changes
+
+- **Removed**: `freeze()`, `unfreeze()`, `freezeLayout()` methods
+- **Removed**: `isFrozen` state and related freeze functionality
+- **Removed**: CSS transitions on grid items (now `transition: 'none'`)
+- **Changed**: Public API simplified - only `layout()` and `updateLayout()` methods remain
+
+#### Performance Improvements
+
+- **No Layout Thrashing**: Eliminated all layout recalculations during scroll
+- **Perfect Virtualization**: Only visible items rendered, with pre-computed positions
+- **Background Measurement**: Items measured in hidden container, no visual disruption
+- **Optimized Rendering**: Removed unnecessary re-renders and transition animations
+
+#### Technical Changes
+
+- **Removed**: Complex freeze/unfreeze logic that was causing positioning issues
+- **Added**: `measurementPhase` and `allItemsMeasured` state management
+- **Added**: `checkMeasurementCompletion()` and `finalizeMeasurementPhase()` methods
+- **Added**: 5-second timeout fallback to prevent measurement phase getting stuck
+- **Improved**: Item removal handling with proper measurement phase reset
+
+#### Migration Guide
+
+**Before (2.x):**
+```javascript
+const [isFrozen, setIsFrozen] = useState(false);
+
+const handleFreezeToggle = () => {
+  if (isFrozen) {
+    gridRef.current.unfreeze();
+  } else {
+    gridRef.current.freeze();
+  }
+};
+```
+
+**After (3.0.0):**
+```javascript
+// No freeze logic needed - grid handles everything automatically
+// Simply use the grid normally:
+<StackGrid ref={gridRef} virtualized>
+  {items.map(item => <Item key={item.id} {...item} />)}
+</StackGrid>
+```
+
+#### Benefits
+
+- ✅ **No overlapping cards** during scroll
+- ✅ **No position shifting** when new items become visible
+- ✅ **Perfect static scrolling** experience
+- ✅ **Simplified integration** - no manual freeze management
+- ✅ **Better performance** - no layout thrashing
+- ✅ **More reliable** - bulletproof measurement with fallbacks
+
+#### Use Cases
+
+- **Social Media Feeds**: Perfect for infinite scroll without layout jumps
+- **E-commerce Grids**: Stable product browsing experience
+- **Content Management**: Reliable grid layouts for dynamic content
+- **Dashboard Widgets**: Consistent positioning during data updates
+
 ## 2.0.0 (2025-01-27)
 
 ### 🎉 Major New Feature: Frozen Layout System
