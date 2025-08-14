@@ -200,7 +200,7 @@ const GridInlineDefaultProps = {
   gutterWidth: 5,
   gutterHeight: 5,
   virtualized: false,
-  debug: true,
+  debug: false,
   virtualizationBuffer: 800,
   scrollContainer: null,
 };
