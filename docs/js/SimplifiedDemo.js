@@ -172,7 +172,7 @@ function SimplifiedDemo() {
   const gridContent = (
     <StackGrid
       virtualized
-      debug
+      debug={false}
       gridRef={(ref) => {
         console.log('[Demo] gridRef callback called with:', ref);
         gridRef.current = ref;
@@ -180,6 +180,7 @@ function SimplifiedDemo() {
       columnWidth={columnWidth}
       gutterWidth={gutterSize}
       gutterHeight={gutterSize}
+      alignment="center"
       rtl={isRTL}
       scrollContainer={useScrollContainer ? scrollContainerRef.current : null}
       style={{

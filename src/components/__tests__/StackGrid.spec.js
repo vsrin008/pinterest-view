@@ -212,6 +212,41 @@ describe('StackGrid', () => {
     });
   });
 
+  describe('Alignment', () => {
+    it('renders with left alignment by default', () => {
+      const { container } = render(
+        <StackGrid columnWidth={100}>
+          <div key="1" style={{ height: '200px' }}>Item 1</div>
+          <div key="2" style={{ height: '200px' }}>Item 2</div>
+        </StackGrid>,
+      );
+      
+      expect(container.firstChild).toBeInTheDocument();
+    });
+
+    it('renders with center alignment', () => {
+      const { container } = render(
+        <StackGrid columnWidth={100} alignment="center">
+          <div key="1" style={{ height: '200px' }}>Item 1</div>
+          <div key="2" style={{ height: '200px' }}>Item 2</div>
+        </StackGrid>,
+      );
+      
+      expect(container.firstChild).toBeInTheDocument();
+    });
+
+    it('renders with right alignment', () => {
+      const { container } = render(
+        <StackGrid columnWidth={100} alignment="right">
+          <div key="1" style={{ height: '200px' }}>Item 1</div>
+          <div key="2" style={{ height: '200px' }}>Item 2</div>
+        </StackGrid>,
+      );
+      
+      expect(container.firstChild).toBeInTheDocument();
+    });
+  });
+
   describe('Scroll Container Management', () => {
     it('properly handles scroll container changes', () => {
       const mockScrollContainer = {

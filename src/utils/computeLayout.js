@@ -7,10 +7,11 @@
  * @param {number} config.columnWidth - width of each column
  * @param {number} config.gutterWidth - horizontal gutter between columns
  * @param {number} config.gutterHeight - vertical gutter between items
+ * @param {number} config.offsetX - horizontal offset for alignment
  * @returns {Object} - map of key to rect { top, left, width, height }
  */
 export default function computeLayout(keys, heightCache, config) {
-  const { columnCount, columnWidth, gutterWidth, gutterHeight } = config;
+  const { columnCount, columnWidth, gutterWidth, gutterHeight, offsetX = 0 } = config;
   const columnHeights = new Array(columnCount).fill(0);
   const rectsMap = {};
 
@@ -28,8 +29,8 @@ export default function computeLayout(keys, heightCache, config) {
     // Get item height
     const height = heightCache.get(key) || 200;
 
-    // Calculate position
-    const left = shortestColumnIndex * (columnWidth + gutterWidth);
+    // Calculate position with alignment offset
+    const left = offsetX + shortestColumnIndex * (columnWidth + gutterWidth);
     const top = columnHeights[shortestColumnIndex];
 
     // Store rect

@@ -15,19 +15,45 @@ import computeLayout, { computeContainerHeight } from '../utils/computeLayout';
 const isNumber = (v) => typeof v === 'number' && Number.isFinite(v);
 const isPercentageNumber = (v) => typeof v === 'string' && /^\d+(\.\d+)?%$/.test(v);
 
-const getColumnConfig = (containerWidth, columnWidth, gutterWidth) => {
+const getColumnConfig = (containerWidth, columnWidth, gutterWidth, alignment = 'left') => {
+  let columnCount, actualColumnWidth, totalGridWidth, offsetX;
+  
   if (isNumber(columnWidth)) {
     // Keep the column width fixed, only calculate number of columns
-    const columnCount = Math.floor((containerWidth + gutterWidth) / (columnWidth + gutterWidth));
-    return { columnCount: Math.max(1, columnCount), columnWidth };
-  }
-  if (isPercentageNumber(columnWidth)) {
+    columnCount = Math.floor((containerWidth + gutterWidth) / (columnWidth + gutterWidth));
+    actualColumnWidth = columnWidth;
+  } else if (isPercentageNumber(columnWidth)) {
     const percentage = parseFloat(columnWidth) / 100;
-    const columnCount = Math.floor(1 / percentage);
-    const actualColumnWidth = (containerWidth - (columnCount - 1) * gutterWidth) / columnCount;
-    return { columnCount, columnWidth: actualColumnWidth };
+    columnCount = Math.floor(1 / percentage);
+    actualColumnWidth = (containerWidth - (columnCount - 1) * gutterWidth) / columnCount;
+  } else {
+    throw new Error('columnWidth must be a number or percentage string');
   }
-  throw new Error('columnWidth must be a number or percentage string');
+  
+  columnCount = Math.max(1, columnCount);
+  
+  // Calculate total grid width and offset for alignment
+  totalGridWidth = columnCount * actualColumnWidth + (columnCount - 1) * gutterWidth;
+  
+  switch (alignment) {
+    case 'center':
+      offsetX = (containerWidth - totalGridWidth) / 2;
+      break;
+    case 'right':
+      offsetX = containerWidth - totalGridWidth;
+      break;
+    case 'left':
+    default:
+      offsetX = 0;
+      break;
+  }
+  
+  return { 
+    columnCount, 
+    columnWidth: actualColumnWidth, 
+    totalGridWidth, 
+    offsetX 
+  };
 };
 
 // Optimized column finding - O(n) instead of O(n*m)
@@ -184,6 +210,7 @@ const GridInlinePropTypes = {
   debug: PropTypes.bool,
   virtualizationBuffer: PropTypes.number,
   scrollContainer: PropTypes.instanceOf(HTMLElement),
+  alignment: PropTypes.oneOf(['left', 'center', 'right']),
 };
 
 const GridInlineDefaultProps = {
@@ -203,6 +230,7 @@ const GridInlineDefaultProps = {
   debug: false,
   virtualizationBuffer: 800,
   scrollContainer: null,
+  alignment: 'left',
 };
 
 class GridInline extends Component {
@@ -223,7 +251,6 @@ class GridInline extends Component {
     this.mounted = false;
     this.layoutRequestId = null;
     this.scrollRAF = null;
-    this.lastLogTime = 0;
     this.scroller = props.scrollContainer || window;
     
     // Layout system
@@ -271,7 +298,7 @@ class GridInline extends Component {
         if (entry && this.mounted) {
           const { width } = entry.contentRect;
           if (width > 0 && (!this.props.size || !this.props.size.width)) {
-            console.log('[StackGrid] ResizeObserver fallback: width =', width);
+            this.debugLog('ResizeObserver fallback: width =', width);
             // Force a layout update with the measured width
             this.forceUpdate();
           }
@@ -418,24 +445,9 @@ class GridInline extends Component {
     }
   }
 
-  // Throttled debug logging
-  debugLog = (message, data = null, force = false) => {
-    const { debug } = this.props;
-    if (!debug) return;
-
-    const now = Date.now();
-    const timeSinceLastLog = now - this.lastLogTime;
-
-    // Throttle logs to prevent console spam, but allow forced logs
-    if (!force && timeSinceLastLog < 1000) return;
-
-    this.lastLogTime = now;
-
-    if (data) {
-      console.log(`[StackGrid] ${message}`, data);
-    } else {
-      console.log(`[StackGrid] ${message}`);
-    }
+  // Debug logging method (no-op)
+  debugLog = () => {
+    // All logging removed - this method does nothing
   };
 
   handleScroll = () => {
@@ -483,6 +495,7 @@ class GridInline extends Component {
       gutterWidth,
       gutterHeight,
       size,
+      alignment,
     } = this.props;
     let containerWidth = size?.width;
 
@@ -490,12 +503,12 @@ class GridInline extends Component {
     if (!containerWidth || containerWidth <= 0) {
       if (this.containerRef.current) {
         containerWidth = this.containerRef.current.clientWidth;
-        console.log('[StackGrid] Using DOM fallback width:', containerWidth);
+        this.debugLog('Using DOM fallback width:', containerWidth);
       }
     }
 
     if (!containerWidth || containerWidth <= 0) {
-      console.log('[StackGrid] No container width available, skipping layout');
+      this.debugLog('No container width available, skipping layout');
       return;
     }
 
@@ -507,10 +520,11 @@ class GridInline extends Component {
     }
 
     try {
-      const { columnCount, columnWidth: actualColumnWidth } = getColumnConfig(
+      const { columnCount, columnWidth: actualColumnWidth, offsetX } = getColumnConfig(
         containerWidth,
         columnWidth,
         gutterWidth,
+        alignment,
       );
 
       const config = {
@@ -518,6 +532,7 @@ class GridInline extends Component {
         columnWidth: actualColumnWidth,
         gutterWidth,
         gutterHeight,
+        offsetX,
       };
 
       const keys = validChildren.map((child) => child.key);
@@ -530,6 +545,8 @@ class GridInline extends Component {
         items: validChildren.length,
         columns: columnCount,
         height,
+        alignment,
+        offsetX,
       });
 
       this.setState((prevState) => ({
@@ -543,7 +560,7 @@ class GridInline extends Component {
         }
       });
     } catch (error) {
-      console.error('Layout computation error:', error);
+      // Error logging removed
     }
   };
 
@@ -646,6 +663,7 @@ class GridInline extends Component {
       gutterWidth,
       gutterHeight,
       size,
+      alignment,
     } = this.props;
     let containerWidth = size?.width;
 
@@ -664,10 +682,11 @@ class GridInline extends Component {
     if (changedIndex === -1) return;
 
     try {
-      const { columnCount, columnWidth: actualColumnWidth } = getColumnConfig(
+      const { columnCount, columnWidth: actualColumnWidth, offsetX } = getColumnConfig(
         containerWidth,
         columnWidth,
         gutterWidth,
+        alignment,
       );
 
       // Recalculate layout from the changed item onwards
@@ -682,7 +701,7 @@ class GridInline extends Component {
         // Find shortest column
         const shortestColumnIndex = getShortestColumn(columnHeights);
 
-        const left = shortestColumnIndex * (actualColumnWidth + gutterWidth);
+        const left = offsetX + shortestColumnIndex * (actualColumnWidth + gutterWidth);
         const top = columnHeights[shortestColumnIndex];
 
         columnHeights[shortestColumnIndex] = top + itemHeight + gutterHeight;
@@ -703,7 +722,7 @@ class GridInline extends Component {
         // Find shortest column
         const shortestColumnIndex = getShortestColumn(columnHeights);
 
-        const left = shortestColumnIndex * (actualColumnWidth + gutterWidth);
+        const left = offsetX + shortestColumnIndex * (actualColumnWidth + gutterWidth);
         const top = columnHeights[shortestColumnIndex];
 
         columnHeights[shortestColumnIndex] = top + itemHeight + gutterHeight;
@@ -723,6 +742,8 @@ class GridInline extends Component {
         oldHeight,
         newHeight,
         totalHeight: height,
+        alignment,
+        offsetX,
       });
 
       this.setState((prevState) => ({ ...prevState, rects, height }), () => {
@@ -732,7 +753,7 @@ class GridInline extends Component {
         }
       });
     } catch (error) {
-      console.error('Layout update error:', error);
+      // Error logging removed
     }
   };
 
@@ -928,6 +949,7 @@ const StackGridPropTypes = {
     unregisterRef: PropTypes.func,
   }),
   scrollContainer: PropTypes.instanceOf(HTMLElement),
+  alignment: PropTypes.oneOf(['left', 'center', 'right']),
 };
 
 const StackGridDefaultProps = {
@@ -945,6 +967,7 @@ const StackGridDefaultProps = {
   debug: false,
   size: null,
   scrollContainer: null,
+  alignment: 'left',
 };
 
 const StackGrid = forwardRef((props, ref) => {
@@ -963,20 +986,12 @@ const StackGrid = forwardRef((props, ref) => {
   );
 
   const handleGridRef = (inst) => {
-    console.log('[StackGrid] handleGridRef called with:', inst);
     inner.current = inst;
     // Also call the original gridRef prop if provided
     if (props.gridRef) {
-      console.log('[StackGrid] Calling original gridRef prop');
       props.gridRef(inst);
     }
   };
-
-  console.log('[StackGrid] Rendering StackGrid with props:', {
-    hasGridRef: !!props.gridRef,
-    hasRef: !!ref,
-    childrenCount: React.Children.count(props.children),
-  });
 
   // Use react-sizeme HOC with better configuration
   return <SizedGrid {...props} gridRef={handleGridRef} />;
